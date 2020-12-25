@@ -60,6 +60,8 @@ var
   mem_p: util_mem_context_p_t;         {pointer to mem context for the lib use}
 
 begin
+  if code_p = nil then return;         {ignore request if no library use state}
+
   mem_p := code_p^.mem_p;              {make local copy of pointer to mem context}
   util_mem_context_del (mem_p);        {deallocate all dyn mem, delete context}
 

@@ -13,11 +13,11 @@ type
 {
 *   Functions and subroutines.
 }
-procedure code_end (                   {end a use of the CODE library}
+procedure code_lib_end (               {end a use of the CODE library}
   in out  code_p: code_p_t);           {pointer to lib use state, returned NIL}
   val_param; extern;
 
-procedure code_new (                   {create new use of the CODE library}
+procedure code_lib_new (               {create new use of the CODE library}
   in out  mem: util_mem_context_t;     {parent mem context, will create subordinate}
   out     code_p: code_p_t;            {returned pointer to new library use state}
   out     stat: sys_err_t);            {completion status}

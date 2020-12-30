@@ -19,8 +19,9 @@ type
   code_refmod_p_t = ^code_refmod_t;
   code_proc_arg_p_t = ^code_proc_arg_t;
   code_proc_p_t = ^code_proc_t;
+  code_call_arg_p_t = ^code_call_arg_t;
+  code_dumarg_p_t = ^code_dumarg_t;
   code_ele_p_t = ^code_ele_t;
-  code_oparg_p_t = ^code_oparg_t;
   code_caseval_p_t = ^code_caseval_t;
   code_case_p_t = ^code_case_t;
   code_iter_p_t = ^code_iter_t;
@@ -269,7 +270,7 @@ code_typid_pnt_k: (                    {data type is a pointer}
   code_scope_t = record                {data about a scope or namespace}
     parent_p: code_scope_p_t;          {points to parent scope block}
     symbol_p: code_symbol_p_t;         {points to top symbol for this scope}
-    symtab: code_symtab_t;             {symbol tables}
+    sym: code_symtab_t;                {symbol tables}
     flags: code_scopeflag_t;           {set of individual flags}
     end;
 
@@ -307,8 +308,7 @@ code_symtype_field_k: (                {symbol is a field name of aggregate data
 code_symtype_var_k: (                  {symbol is a variable}
       var_dtype_p: code_dtype_p_t;     {pointer to data type definition}
       var_val_p: code_exp_p_t;         {points to initial value expression, if any}
-      var_arg_p: code_proc_arg_p_t;    {points to arg descriptor if dummy argument}
-      var_proc_p: code_proc_p_t;       {points to routine descriptor if dummy arg}
+      var_arg_p: code_dumarg_p_t;      {points to arg descriptor if dummy argument}
       var_com_p: code_symbol_p_t;      {points to common block symbol if in common}
       var_next_p: code_symbol_p_t;     {points to next var in common block}
       );
@@ -409,11 +409,6 @@ code_typid_copy_k: (                   {data type is a copy of another}
       );
     end;
 
-  code_oparg_t = record                {one argument to an operation}
-    next_p: code_oparg_p_t;            {to next arugment for the operation}
-    exp_p: code_exp_p_t;               {this argument}
-    end;
-
   code_explist_t = record              {list of expressions}
     next_p: code_explist_p_t;          {to next expression in the list}
     exp_p: code_exp_p_t;               {to expression for this list entry}
@@ -434,9 +429,9 @@ code_expid_var_k: (                    {variable reference}
       var_ref_p: code_symref_p_t;      {points to reference to variable symbol}
       );
 code_expid_func_k: (                   {returned value of a function}
-      func_ref_p: code_symref_p_t;     {points to reference to function symbol}
-      func_proc_p: code_proc_p_t;      {points to function call descriptor}
-      func_proct_p: code_proc_p_t;     {points to function template descriptor}
+      func_ref_p: code_symref_p_t;     {points to function call symbol reference}
+      func_proc_p: code_proc_p_t;      {points to function template}
+      func_arg_p: code_call_arg_p_t;   {points to list of call arguments}
       );
 code_expid_set_k: (                    {set value}
       set_ele_p: code_explist_p_t;     {list of elements or ranges of elements}
@@ -452,27 +447,41 @@ code_expid_range_k: (                  {range of values}
       );
 code_expid_op_k: (                     {result of operation}
       op_id: code_opid_k_t;            {indicates the specific operation}
-      op_arg_p: code_oparg_p_t;        {pointer to list of arguments}
+      op_arg_p: code_explist_p_t;      {pointer to list of arguments}
       );
     end;
 
-  code_proc_arg_t = record             {data about one procedure argument}
+  code_proc_arg_t = record             {template for one procedure argument}
     next_p: code_proc_arg_p_t;         {points to data about next arg}
-    sym_p: code_symbol_p_t;            {point to arg symbol in actual routine}
+    proc_p: code_proc_p_t;             {points to interface definition of the procedure}
+    pos: fline_posh_t;                 {position of definition in source code}
     name_p: string_var_p_t;            {pnt to arg name if routine template}
-    exp_p: code_exp_p_t;               {pnt to arg value expression if called}
     dtype_p: code_dtype_p_t;           {points to required data type for this arg}
-    rwflag_int: code_rwflag_t;         {arg read/write permission from inside proc}
-    rwflag_ext: code_rwflag_t;         {internal read/write flag as seen by caller}
+    rwflag: code_rwflag_t;             {routine's read/write permission of this arg}
     flag: code_argflag_k_t;            {modifier flags}
     end;
 
-  code_proc_t = record                 {interface data for one procedure}
+  code_proc_t = record                 {external interface data for one procedure}
     sym_p: code_symbol_p_t;            {points to routine name symbol, if any}
     dtype_func_p: code_dtype_p_t;      {points to function val data type, if any}
     n_args: sys_int_machine_t;         {total number of call arguments}
     flags: code_procflag_t;            {set of one-bit flags}
-    first_arg_p: code_proc_arg_p_t;    {points to list of call arguments}
+    arg_p: code_proc_arg_p_t;          {points to list of call arguments templates}
+    end;
+
+  code_call_arg_t = record             {argument being passed to a routine}
+    next_p: code_call_arg_p_t;         {points to next call argument of this call}
+    proc_p: code_proc_p_t;             {points to procedure definition}
+    arg_p: code_proc_arg_p_t;          {points to the argument template}
+    exp_p: code_exp_p_t;               {points to value being passed}
+    end;
+
+  code_dumarg_t = record               {call argument as seen inside the routine}
+    next_p: code_dumarg_p_t;           {points to next dummy argument of this routine}
+    proc_p: code_proc_p_t;             {points to the routine definition}
+    arg_p: code_proc_arg_p_t;          {points to the argument template}
+    sym_p: code_symbol_p_t;            {point to arg symbol in actual routine}
+    rwflag: code_rwflag_t;             {arg read/write permission from inside proc}
     end;
 
   code_refmod_t = record               {data for one variable modifier}
@@ -564,8 +573,8 @@ code_ele_label_k: (                    {opcode indicates a label exists here}
       );
 code_ele_call_k: (                     {subroutine call}
       call_ref_p: code_symref_p_t;     {points to subroutine name reference}
-      call_proc_p: code_proc_p_t;      {points to called routine descriptor}
-      call_proct_p: code_proc_p_t;     {points to template for called routine}
+      call_proc_p: code_proc_p_t;      {points to template for called routine}
+      call_arg_p: code_call_arg_p_t;   {points to list of call arguments}
       );
 code_ele_assign_k: (                   {assignment statement}
       assign_var_p: code_symref_p_t;   {points to target variable reference}

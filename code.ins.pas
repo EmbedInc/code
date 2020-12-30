@@ -25,6 +25,7 @@ type
   code_caseval_p_t = ^code_caseval_t;
   code_case_p_t = ^code_case_t;
   code_iter_p_t = ^code_iter_t;
+  code_comm_p_t = ^code_comm_t;
 
   code_symtype_k_t = (                 {all the different symbol types}
     code_symtype_undef_k,              {symbol is known, but not defined yet}
@@ -225,11 +226,33 @@ type
     code_ele_write_k,                  {write string to standard output}
     code_ele_write_eol_k);             {write end of line to standard output}
 
+  code_commty_k_t = (                  {types of comments}
+    code_commty_float_k,               {floating, not associated with specific code}
+    code_commty_block_k,               {applies to a block of code}
+    code_commty_eol_k);                {end of line, tags first char on line}
+
+  code_comm_t = record                 {one comment}
+    higher_p: code_comm_p_t;           {higher comment also applying here}
+    pos: fline_posh_t;                 {position of comment start in source code}
+    commty: code_commty_k_t;           {comment type}
+    case code_commty_k_t of
+code_commty_float_k: (                 {floating comment block}
+      float_list_p: string_fwlist_p_t; {points to list of comment text lines}
+      );
+code_commty_block_k: (                 {comment for block of code}
+      block_list_p: string_fwlist_p_t; {points to list of comment text lines}
+      );
+code_commty_eol_k: (                   {end of line comment}
+      eol_pos: fline_posh_t;           {position in source code comment is connected to}
+      eol_str_p: string_var_p_t;       {the comment text string}
+      );
+    end;
+
   code_val_set_t =                     {one bit for each possible element in a set}
     array[0..0] of sys_int_conv32_t;   {32 bits stored in each array element}
 
-
   code_value_t = record                {data describing a known constant value}
+    comm_p: code_comm_p_t;             {related comments}
     typid: code_typid_k_t;             {data type ID of the constant}
     case code_typid_k_t of             {different data for each data type}
 code_typid_int_k: (                    {data type is an integer}
@@ -269,6 +292,7 @@ code_typid_pnt_k: (                    {data type is a pointer}
 
   code_scope_t = record                {data about a scope or namespace}
     parent_p: code_scope_p_t;          {points to parent scope block}
+    comm_p: code_comm_p_t;             {related comments}
     symbol_p: code_symbol_p_t;         {points to top symbol for this scope}
     sym: code_symtab_t;                {symbol tables}
     flags: code_scopeflag_t;           {set of individual flags}
@@ -276,6 +300,7 @@ code_typid_pnt_k: (                    {data type is a pointer}
 
   code_symbol_t = record               {all the data about one symbol}
     name_p: string_var_p_t;            {points to name as appeared in source code}
+    comm_p: code_comm_p_t;             {related comments}
     scope_p: code_scope_p_t;           {points to scope this symbol defined in}
     pos: fline_posh_t;                 {position of definition in source code}
     flags: code_symflag_t;             {set of individual flags}
@@ -343,6 +368,7 @@ code_symtype_label_k: (                {symbol is a statement label}
 
   code_dtype_t = record                {definition of a data type}
     symbol_p: code_symbol_p_t;         {points to symbol representing this data type}
+    comm_p: code_comm_p_t;             {related comments}
     typid: code_typid_k_t;             {data type ID, use CODE_TYPID_xxx_K}
     bits_min: sys_int_machine_t;       {minimum bits could use for whole data type}
     align_nat: sys_int_machine_t;      {natural alignment, = 0 for packed record}
@@ -415,6 +441,7 @@ code_typid_copy_k: (                   {data type is a copy of another}
     end;
 
   code_exp_t = record                  {expression that supplies a value}
+    comm_p: code_comm_p_t;             {related comments}
     pos: fline_posh_t;                 {starting position of exp in source code}
     dtype_p: code_dtype_p_t;           {data type of the expression}
     val_p: code_value_p_t;             {expression value, if known}
@@ -453,6 +480,7 @@ code_expid_op_k: (                     {result of operation}
 
   code_proc_arg_t = record             {template for one procedure argument}
     next_p: code_proc_arg_p_t;         {points to data about next arg}
+    comm_p: code_comm_p_t;             {related comments}
     proc_p: code_proc_p_t;             {points to interface definition of the procedure}
     pos: fline_posh_t;                 {position of definition in source code}
     name_p: string_var_p_t;            {pnt to arg name if routine template}
@@ -462,6 +490,7 @@ code_expid_op_k: (                     {result of operation}
     end;
 
   code_proc_t = record                 {external interface data for one procedure}
+    comm_p: code_comm_p_t;             {related comments}
     sym_p: code_symbol_p_t;            {points to routine name symbol, if any}
     dtype_func_p: code_dtype_p_t;      {points to function val data type, if any}
     n_args: sys_int_machine_t;         {total number of call arguments}
@@ -471,6 +500,7 @@ code_expid_op_k: (                     {result of operation}
 
   code_call_arg_t = record             {argument being passed to a routine}
     next_p: code_call_arg_p_t;         {points to next call argument of this call}
+    comm_p: code_comm_p_t;             {related comments}
     proc_p: code_proc_p_t;             {points to procedure definition}
     arg_p: code_proc_arg_p_t;          {points to the argument template}
     exp_p: code_exp_p_t;               {points to value being passed}
@@ -478,6 +508,7 @@ code_expid_op_k: (                     {result of operation}
 
   code_dumarg_t = record               {call argument as seen inside the routine}
     next_p: code_dumarg_p_t;           {points to next dummy argument of this routine}
+    comm_p: code_comm_p_t;             {related comments}
     proc_p: code_proc_p_t;             {points to the routine definition}
     arg_p: code_proc_arg_p_t;          {points to the argument template}
     sym_p: code_symbol_p_t;            {point to arg symbol in actual routine}
@@ -504,6 +535,7 @@ code_refmodid_field_k: (               {field within parent}
   code_symref_t = record               {symbol reference}
     sym_p: code_symbol_p_t;            {the symbol being referenced}
     pos: fline_posh_t;                 {starting position in source code}
+    comm_p: code_comm_p_t;             {related comments}
     mod_p: code_refmod_p_t;            {list of modifiers applied to this symbol}
     rwflag: code_rwflag_t;             {read/write permission for this "variable"}
     vtype: code_refid_k_t;             {ID for final resolved symbol ref type}
@@ -527,11 +559,13 @@ code_refid_com_k: (                    {a common block reference}
 
   code_caseval_t = record              {one value of this code case to pick from}
     next_p: code_caseval_p_t;          {points to next value for this code case}
+    comm_p: code_comm_p_t;             {related comments}
     exp_p: code_exp_p_t;               {points to expression for this value}
     end;
 
   code_case_t = record                 {one case is list of cases}
     next_p: code_case_p_t;             {next case in the list}
+    comm_p: code_comm_p_t;             {related comments}
     vals_p: code_caseval_p_t;          {values for selecting this case}
     code_p: code_ele_p_t;              {executable code for this case}
     end;
@@ -551,6 +585,7 @@ code_iterid_cnt_k: (                   {counted loop}
   code_ele_t = record                  {one code element}
     next_p: code_ele_p_t;              {points to next successive element, NIL = end}
     pos: fline_posh_t;                 {starting position in source code}
+    comm_p: code_comm_p_t;             {related comments}
     opcode: code_ele_k_t;              {ID for this element type}
     case code_ele_k_t of
 code_ele_module_k: (                   {routines in one source module}

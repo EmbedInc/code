@@ -7,6 +7,11 @@ const
   code_align_natural_k = -1;           {special ID for natural alignment}
 
 type
+  code_memory_p_t = ^code_memory_t;
+  code_memregion_p_t = ^code_memregion_t;
+  code_memreg_ent_p_t = ^code_memreg_ent_t;
+  code_adrspace_p_t = ^code_adrspace_t;
+  code_adrregion_p_t = ^code_adrregion_t;
   code_value_p_t = ^code_value_t;
   code_val_set_p_t = ^code_val_set_t;
   code_scope_p_t = ^code_scope_t;
@@ -26,6 +31,13 @@ type
   code_case_p_t = ^code_case_t;
   code_iter_p_t = ^code_iter_t;
   code_comm_p_t = ^code_comm_t;
+
+  code_memattr_k_t = (                 {types of attrutes to a memory or address space}
+    code_memattr_rd_k,                 {read}
+    code_memattr_wr_k,                 {write}
+    code_memattr_nv_k,                 {memory is non-volatile}
+    code_memattr_ex_k);                {execute}
+  code_memattr_t = set of code_memattr_k_t;
 
   code_symtype_k_t = (                 {all the different symbol types}
     code_symtype_undef_k,              {symbol is known, but not defined yet}
@@ -230,6 +242,51 @@ type
     code_commty_float_k,               {floating, not associated with specific code}
     code_commty_block_k,               {applies to a block of code}
     code_commty_eol_k);                {end of line, tags first char on line}
+{
+****************************************
+*
+*   Data structures.
+}
+  {   Memories are where data is stored.  Address spaces are how the processor
+  *   accesses that data.
+  }
+  code_memory_t = record               {one physical memory connected to the processor}
+    name_p: string_var_p_t;            {name of this memory}
+    bitsadr: sys_int_machine_t;        {number of bits in address}
+    bitsdat: sys_int_machine_t;        {number of bits per addressable word}
+    region_p: code_memregion_p_t;      {points to list of regions within this memory}
+    attr: code_memattr_t;              {additional attibute flags}
+    end;
+
+  code_memregion_t = record            {region within a memory}
+    next_p: code_memregion_p_t;        {to next region in the same memory}
+    name_p: string_var_p_t;            {name of this region}
+    mem_p: code_memory_p_t;            {memory this region is within}
+    adrst: sys_int_conv32_t;           {start address of this region within the memory}
+    adren: sys_int_conv32_t;           {end address of this region within the memory}
+    attr: code_memattr_t;              {additional attibute flags}
+    end;
+
+  code_memreg_ent_t = record           {one entry in list of memory regions}
+    next_p: code_memreg_ent_p_t;       {to next list entry}
+    region_p: code_memregion_p_t;      {points to the mem region for this list entry}
+    end;
+
+  code_adrspace_t = record             {address space visible to the processor}
+    name_p: string_var_p_t;            {name of this address space}
+    bitsadr: sys_int_machine_t;        {number of bits in address}
+    bitsdat: sys_int_machine_t;        {number of bits per addressable word}
+    attr: code_memattr_t;              {additional attibute flags}
+    end;
+
+  code_adrregion_t = record            {region of address space with consistant attributes}
+    name_p: string_var_p_t;            {name of this region with address space}
+    space_p: code_adrspace_p_t;        {address space this region is within}
+    adrst: sys_int_conv32_t;           {start address of this region within adr space}
+    adren: sys_int_conv32_t;           {end address of this region within adr space}
+    memreg_p: code_memreg_ent_p_t;     {list of mem regions mapped to this adr region}
+    attr: code_memattr_t;              {additional attibute flags}
+    end;
 
   code_comm_t = record                 {one comment}
     higher_p: code_comm_p_t;           {higher comment also applying here}

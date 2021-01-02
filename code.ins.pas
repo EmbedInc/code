@@ -41,6 +41,10 @@ type
 
   code_symtype_k_t = (                 {all the different symbol types}
     code_symtype_undef_k,              {symbol is known, but not defined yet}
+    code_symtype_memory_k,             {memory}
+    code_symtype_memreg_k,             {memory region}
+    code_symtype_adrsp_k,              {address space}
+    code_symtype_adrreg_k,             {address region}
     code_symtype_const_k,              {constant, value known at compile time}
     code_symtype_enum_k,               {name of an enumerated type, constant int}
     code_symtype_dtype_k,              {data type definition}
@@ -288,8 +292,25 @@ type
     attr: code_memattr_t;              {additional attibute flags}
     end;
 
+  code_memadr_sym_t = record           {memory and address regions symbol table data}
+    symtype: code_symtype_k_t;         {ID for the symbol type}
+    case code_symtype_k_t of
+code_symtype_memory_k: (               {memory}
+      memory_p: code_memory_p_t;       {points to memory descriptor}
+      );
+code_symtype_memreg_k: (               {memory region}
+      memreg_p: code_memregion_p_t;    {points to memory region descriptor}
+      );
+code_symtype_adrsp_k: (                {address space}
+      adrsp_p: code_adrspace_p_t;      {points to address space descriptor}
+      );
+code_symtype_adrreg_k: (               {address region}
+      adrreg_p: code_adrregion_p_t;    {points to address region descriptor}
+      );
+    end;
+
   code_comm_t = record                 {one comment}
-    higher_p: code_comm_p_t;           {higher comment also applying here}
+    higher_p: code_comm_p_t;           {higher level comment also applying here}
     pos: fline_posh_t;                 {position of comment start in source code}
     commty: code_commty_k_t;           {comment type}
     case code_commty_k_t of
@@ -393,6 +414,7 @@ code_symtype_var_k: (                  {symbol is a variable}
       var_arg_p: code_dumarg_p_t;      {points to arg descriptor if dummy argument}
       var_com_p: code_symbol_p_t;      {points to common block symbol if in common}
       var_next_p: code_symbol_p_t;     {points to next var in common block}
+      var_memreg_p: code_memreg_ent_p_t; {points to list of mem regions variable may be in}
       );
 code_symtype_alias_k: (                {symbol is an alias for another symbol reference}
       alias_symref_p: code_symref_p_t; {points to symbol reference alias expands to}
@@ -402,13 +424,16 @@ code_symtype_proc_k: (                 {symbol is a procedure}
       proc_scope_p: code_scope_p_t;    {points to scope for rest of procedure}
       proc_dtype_p: code_dtype_p_t;    {points to data type for the procedure (not func ret)}
       proc_funcvar_p: code_symbol_p_t; {points to function return "variable" symbol}
+      proc_memreg_p: code_memreg_ent_p_t; {points to list of mem regions routine may be in}
       );
 code_symtype_prog_k: (                 {symbol is a program name}
       prog_scope_p: code_scope_p_t;    {points to scope for rest of program}
+      prog_memreg_p: code_memreg_ent_p_t; {points to list of mem regions program may be in}
       );
 code_symtype_com_k: (                  {symbol is a common block name}
       com_first_p: code_symbol_p_t;    {points to first variable in common block}
       com_size: sys_int_max_t;         {common block size in machine addresses}
+      com_memreg_p: code_memreg_ent_p_t; {points to list of mem regions block may be in}
       );
 code_symtype_module_k: (               {symbol is a module name}
       module_scope_p: code_scope_p_t;  {points to scope for rest of module}
@@ -595,7 +620,7 @@ code_refmodid_field_k: (               {field within parent}
     comm_p: code_comm_p_t;             {related comments}
     mod_p: code_refmod_p_t;            {list of modifiers applied to this symbol}
     rwflag: code_rwflag_t;             {read/write permission for this "variable"}
-    vtype: code_refid_k_t;             {ID for final resolved symbol ref type}
+    refid: code_refid_k_t;             {ID for final resolved symbol ref type}
     case code_refid_k_t of
 code_refid_var_k: (                    {variable}
       var_dtype_p: code_dtype_p_t;     {points to final data type}
@@ -643,7 +668,7 @@ code_iterid_cnt_k: (                   {counted loop}
     next_p: code_ele_p_t;              {points to next successive element, NIL = end}
     pos: fline_posh_t;                 {starting position in source code}
     comm_p: code_comm_p_t;             {related comments}
-    opcode: code_ele_k_t;              {ID for this element type}
+    ele: code_ele_k_t;                 {ID for this element type}
     case code_ele_k_t of
 code_ele_module_k: (                   {routines in one source module}
       module_sym_p: code_symbol_p_t;   {points to module name symbol}
@@ -657,10 +682,10 @@ code_ele_rout_k: (                     {start of a routine}
       rout_sym_p: code_symbol_p_t;     {points to routine name symbol}
       rout_p: code_ele_p_t;            {points to code in this routine}
       );
-code_ele_exec_k: (                     {opcode points to chain of executable code}
+code_ele_exec_k: (                     {chain of executable code}
       exec_p: code_ele_p_t;            {points to first code element in chain}
       );
-code_ele_label_k: (                    {opcode indicates a label exists here}
+code_ele_label_k: (                    {a label exists here}
       label_sym_p: code_symbol_p_t;    {points to label symbol}
       );
 code_ele_call_k: (                     {subroutine call}
@@ -672,7 +697,7 @@ code_ele_assign_k: (                   {assignment statement}
       assign_var_p: code_symref_p_t;   {points to target variable reference}
       assign_exp_p: code_exp_p_t;      {points to assignment value expression}
       );
-code_ele_goto_k: (                     {opcode indicates unconditional GOTO}
+code_ele_goto_k: (                     {unconditional GOTO}
       goto_sym_p: code_symbol_p_t;     {points to label symbol}
       );
 code_ele_pick_k: (                     {execute one or more code cases}
@@ -714,19 +739,34 @@ code_ele_write_eol_k: (                {write end of line to standard output}
       );
     end;
 
+  code_inicfg_t = record               {configuration for a new library use}
+    mem_p: util_mem_context_p_t;       {points to parent mem context}
+    n_membuck: sys_int_machine_t;      {num buckets in mem and adr space sym table, 2^N}
+    memnam_len: sys_int_machine_t;     {max length of memory and address space names}
+    symlen_max: sys_int_machine_t;     {max supported length of other symbols}
+    n_symbuck: sys_int_machine_t;      {number of hash buckets in other sym tables}
+    end;
+
   code_p_t = ^code_t;
   code_t = record                      {state for one use of this library}
     mem_p: util_mem_context_p_t;       {context for all dyn mem of this CODE lib use}
+    memsym: string_hash_handle_t;      {symbol table for memories and address spaces}
+    symlen_max: sys_int_machine_t;     {max supported length of other symbols}
+    n_symbuck: sys_int_machine_t;      {number of hash buckets in other sym tables}
     end;
 {
 *   Functions and subroutines.
 }
+procedure code_lib_def (               {set library use configuration to default}
+  out     cfg: code_inicfg_t);         {parameters for initializing a library use}
+  val_param; extern;
+
 procedure code_lib_end (               {end a use of the CODE library}
   in out  code_p: code_p_t);           {pointer to lib use state, returned NIL}
   val_param; extern;
 
 procedure code_lib_new (               {create new use of the CODE library}
-  in out  mem: util_mem_context_t;     {parent mem context, will create subordinate}
+  in      inicfg: code_inicfg_t;       {configuration parameters}
   out     code_p: code_p_t;            {returned pointer to new library use state}
   out     stat: sys_err_t);            {completion status}
   val_param; extern;

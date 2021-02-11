@@ -311,7 +311,7 @@ code_symtype_adrreg_k: (               {address region}
 
   code_comm_t = record                 {one comment}
     higher_p: code_comm_p_t;           {higher level comment also applying here}
-    pos: fline_posh_t;                 {position of comment start in source code}
+    pos: fline_virtlin_t;              {position of comment start in source code}
     commty: code_commty_k_t;           {comment type}
     case code_commty_k_t of
 code_commty_float_k: (                 {floating comment block}
@@ -321,7 +321,7 @@ code_commty_block_k: (                 {comment for block of code}
       block_list_p: string_fwlist_p_t; {points to list of comment text lines}
       );
 code_commty_eol_k: (                   {end of line comment}
-      eol_pos: fline_posh_t;           {position in source code comment is connected to}
+      eol_pos: fline_virtlin_t;        {position in source code comment is connected to}
       eol_str_p: string_var_p_t;       {the comment text string}
       );
     end;
@@ -380,7 +380,7 @@ code_typid_pnt_k: (                    {data type is a pointer}
     name_p: string_var_p_t;            {points to name as appeared in source code}
     comm_p: code_comm_p_t;             {related comments}
     scope_p: code_scope_p_t;           {points to scope this symbol defined in}
-    pos: fline_posh_t;                 {position of definition in source code}
+    pos: fline_virtlin_t;              {position of definition in source code}
     flags: code_symflag_t;             {set of individual flags}
     app_p: univ_ptr;                   {arbitrary pointer to app-specific data}
     symtype: code_symtype_k_t;         {symbol type, use CODE_SYMTYPE_xxx_K}
@@ -524,7 +524,7 @@ code_typid_copy_k: (                   {data type is a copy of another}
 
   code_exp_t = record                  {expression that supplies a value}
     comm_p: code_comm_p_t;             {related comments}
-    pos: fline_posh_t;                 {starting position of exp in source code}
+    pos: fline_virtlin_t;              {starting position of exp in source code}
     dtype_p: code_dtype_p_t;           {data type of the expression}
     val_p: code_value_p_t;             {expression value, if known}
     flag: code_expflag_t;              {modifier flags}
@@ -564,7 +564,7 @@ code_expid_op_k: (                     {result of operation}
     next_p: code_proc_arg_p_t;         {points to data about next arg}
     comm_p: code_comm_p_t;             {related comments}
     proc_p: code_proc_p_t;             {points to interface definition of the procedure}
-    pos: fline_posh_t;                 {position of definition in source code}
+    pos: fline_virtlin_t;              {position of definition in source code}
     name_p: string_var_p_t;            {pnt to arg name if routine template}
     dtype_p: code_dtype_p_t;           {points to required data type for this arg}
     rwflag: code_rwflag_t;             {routine's read/write permission of this arg}
@@ -609,14 +609,14 @@ code_refmodid_subscr_k: (              {next less significant subscript of array
       subscr_last: boolean;            {TRUE if last subscript of set}
       );
 code_refmodid_field_k: (               {field within parent}
-      field_pos: fline_posh_t;         {starting position in source code}
+      field_pos: fline_virtlin_t;      {starting position in source code}
       field_sym_p: code_symbol_p_t;    {points to symbol for this field name}
       );
     end;
 
   code_symref_t = record               {symbol reference}
     sym_p: code_symbol_p_t;            {the symbol being referenced}
-    pos: fline_posh_t;                 {starting position in source code}
+    pos: fline_virtlin_t;              {starting position in source code}
     comm_p: code_comm_p_t;             {related comments}
     mod_p: code_refmod_p_t;            {list of modifiers applied to this symbol}
     rwflag: code_rwflag_t;             {read/write permission for this "variable"}
@@ -666,7 +666,7 @@ code_iterid_cnt_k: (                   {counted loop}
 
   code_ele_t = record                  {one code element}
     next_p: code_ele_p_t;              {points to next successive element, NIL = end}
-    pos: fline_posh_t;                 {starting position in source code}
+    pos: fline_virtlin_t;              {starting position in source code}
     comm_p: code_comm_p_t;             {related comments}
     ele: code_ele_k_t;                 {ID for this element type}
     case code_ele_k_t of

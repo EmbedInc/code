@@ -10,7 +10,7 @@ define code_lib_end;
 *
 *   Subroutine CODE_LIB_DEF (CFG)
 *
-*   Set the configuration parameters for a new use of this library to the
+*   Set the configuration parameters for creating a new use of this library to
 *   default values.
 *
 *   This routine should always be called before specific configuration
@@ -21,8 +21,8 @@ define code_lib_end;
 *   The source code of this routine is the one place the defaults are
 *   hard-coded.
 }
-procedure code_lib_def (               {set library use configuration to default}
-  out     cfg: code_inicfg_t);         {parameters for initializing a library use}
+procedure code_lib_def (               {set library creation parameters to default}
+  out     cfg: code_inicfg_t);         {parameters for creating a library use}
   val_param;
 
 begin

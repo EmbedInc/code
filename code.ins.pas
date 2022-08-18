@@ -6,12 +6,23 @@ const
   code_subsys_k = -72;                 {Embed subsystem ID for the CODE library}
   code_align_natural_k = -1;           {special ID for natural alignment}
 
+  code_stat_memsym_exist_k = 1;        {named memory already exists}
+  code_stat_nomem_k = 2;               {no such named memory}
+  code_stat_notmem_k = 3;              {name is not for a memory}
+  code_stat_nomemreg_k = 4;            {no such named memory region}
+  code_stat_notmemreg_k = 5;           {name is not for a memory region}
+  code_stat_noadrsp_k = 6;             {no such named address space}
+  code_stat_notadrsp_k = 7;            {name is not for a address space}
+  code_stat_noadrreg_k = 8;            {no such named address region}
+  code_stat_notadrreg_k = 9;           {name is not for a address region}
+
 type
   code_memory_p_t = ^code_memory_t;
   code_memregion_p_t = ^code_memregion_t;
   code_memreg_ent_p_t = ^code_memreg_ent_t;
   code_adrspace_p_t = ^code_adrspace_t;
   code_adrregion_p_t = ^code_adrregion_t;
+  code_memadr_sym_p_t = ^code_memadr_sym_t;
   code_value_p_t = ^code_value_t;
   code_val_set_p_t = ^code_val_set_t;
   code_scope_p_t = ^code_scope_t;
@@ -255,16 +266,16 @@ type
   *   accesses that data.
   }
   code_memory_t = record               {one physical memory connected to the processor}
-    name_p: string_var_p_t;            {name of this memory}
+    sym_p: code_memadr_sym_p_t;        {points to symbol data in symbol table}
+    region_p: code_memregion_p_t;      {points to list of regions within this memory}
     bitsadr: sys_int_machine_t;        {number of bits in address}
     bitsdat: sys_int_machine_t;        {number of bits per addressable word}
-    region_p: code_memregion_p_t;      {points to list of regions within this memory}
     attr: code_memattr_t;              {additional attibute flags}
     end;
 
   code_memregion_t = record            {region within a memory}
     next_p: code_memregion_p_t;        {to next region in the same memory}
-    name_p: string_var_p_t;            {name of this region}
+    sym_p: code_memadr_sym_p_t;        {points to symbol data in symbol table}
     mem_p: code_memory_p_t;            {memory this region is within}
     adrst: sys_int_conv32_t;           {start address of this region within the memory}
     adren: sys_int_conv32_t;           {end address of this region within the memory}
@@ -277,14 +288,16 @@ type
     end;
 
   code_adrspace_t = record             {address space visible to the processor}
-    name_p: string_var_p_t;            {name of this address space}
+    sym_p: code_memadr_sym_p_t;        {points to symbol data in symbol table}
+    region_p: code_adrregion_p_t;      {points to list of regions within this adr space}
     bitsadr: sys_int_machine_t;        {number of bits in address}
     bitsdat: sys_int_machine_t;        {number of bits per addressable word}
     attr: code_memattr_t;              {additional attibute flags}
     end;
 
   code_adrregion_t = record            {region of address space with consistant attributes}
-    name_p: string_var_p_t;            {name of this region with address space}
+    next_p: code_adrregion_p_t;        {to next region within same address space}
+    sym_p: code_memadr_sym_p_t;        {points to symbol data in symbol table}
     space_p: code_adrspace_p_t;        {address space this region is within}
     adrst: sys_int_conv32_t;           {start address of this region within adr space}
     adren: sys_int_conv32_t;           {end address of this region within adr space}
@@ -293,6 +306,9 @@ type
     end;
 
   code_memadr_sym_t = record           {memory and address regions symbol table data}
+    name_p: string_var_p_t;            {points to symbol name in symbol table}
+    pos: fline_cpos_t;                 {position of definition in source code}
+    comm_p: code_comm_p_t;             {related comments}
     symtype: code_symtype_k_t;         {ID for the symbol type}
     case code_symtype_k_t of
 code_symtype_memory_k: (               {memory}
@@ -756,6 +772,34 @@ code_ele_write_eol_k: (                {write end of line to standard output}
 {
 *   Functions and subroutines.
 }
+procedure code_adrreg_find (           {find adr region by name, error if not exist}
+  in      code: code_t;                {CODE library use state}
+  in      name: univ string_var_arg_t; {name of adr region to find}
+  out     adrreg_p: code_adrregion_p_t; {returned pointer to the adr region, NIL on err}
+  out     stat: sys_err_t);            {completion status}
+  val_param; extern;
+
+procedure code_adrreg_new (            {create a new named address region}
+  in out  code: code_t;                {CODE library use state}
+  in      name: univ string_var_arg_t; {name of new adr region}
+  out     adrreg_p: code_adrregion_p_t; {returned pointer to the adr region, NIL on err}
+  out     stat: sys_err_t);            {completion status}
+  val_param; extern;
+
+procedure code_adrsp_find (            {find adr space by name, error if not exist}
+  in      code: code_t;                {CODE library use state}
+  in      name: univ string_var_arg_t; {name of adr space to find}
+  out     adrsp_p: code_adrspace_p_t;  {returned pointer to the adr space, NIL on err}
+  out     stat: sys_err_t);            {completion status}
+  val_param; extern;
+
+procedure code_adrsp_new (             {create a new named address space}
+  in out  code: code_t;                {CODE library use state}
+  in      name: univ string_var_arg_t; {name of new adr space}
+  out     adrsp_p: code_adrspace_p_t;  {returned pointer to the adr space, NIL on err}
+  out     stat: sys_err_t);            {completion status}
+  val_param; extern;
+
 procedure code_lib_def (               {set library creation parameters to default}
   out     cfg: code_inicfg_t);         {parameters for creating a library use}
   val_param; extern;
@@ -768,4 +812,38 @@ procedure code_lib_new (               {create new use of the CODE library}
   in      inicfg: code_inicfg_t;       {configuration parameters}
   out     code_p: code_p_t;            {returned pointer to new library use state}
   out     stat: sys_err_t);            {completion status}
+  val_param; extern;
+
+procedure code_mem_find (              {find memory by name, error if not exist}
+  in      code: code_t;                {CODE library use state}
+  in      name: univ string_var_arg_t; {name of memory to find}
+  out     mem_p: code_memory_p_t;      {returned pointer to the memory, NIL on err}
+  out     stat: sys_err_t);            {completion status}
+  val_param; extern;
+
+procedure code_mem_new (               {create a new named memory}
+  in out  code: code_t;                {CODE library use state}
+  in      name: univ string_var_arg_t; {name of new memory}
+  out     mem_p: code_memory_p_t;      {returned pointer to the memory, NIL on err}
+  out     stat: sys_err_t);            {completion status}
+  val_param; extern;
+
+procedure code_memreg_find (           {find memory region by name, error if not exist}
+  in      code: code_t;                {CODE library use state}
+  in      name: univ string_var_arg_t; {name of memory region to find}
+  out     memreg_p: code_memregion_p_t; {returned pointer to the mem region, NIL on err}
+  out     stat: sys_err_t);            {completion status}
+  val_param; extern;
+
+procedure code_memreg_new (            {create a new named memory region}
+  in out  code: code_t;                {CODE library use state}
+  in      name: univ string_var_arg_t; {name of new memory region}
+  out     memreg_p: code_memregion_p_t; {returned pointer to the mem region, NIL on err}
+  out     stat: sys_err_t);            {completion status}
+  val_param; extern;
+
+procedure code_memsym_find (           {find mem, mem region, adr, adr region by name}
+  in      code: code_t;                {CODE library use state}
+  in      name: univ string_var_arg_t; {name of mem/adr symbol to find}
+  out     memsym_p: code_memadr_sym_p_t); {returned pointer to symbol, NIL if none}
   val_param; extern;

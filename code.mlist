@@ -1,2 +1,4 @@
-code_memadr.obj
+code_alloc.obj
+code_comm.obj
 code_lib.obj
+code_memadr.obj

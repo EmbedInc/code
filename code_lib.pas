@@ -87,6 +87,8 @@ begin
 
   code_p^.symlen_max := inicfg.symlen_max;
   code_p^.n_symbuck := inicfg.n_symbuck;
+  code_p^.comm_block_p := nil;
+  code_p^.comm_eol_p := nil;
   end;
 {
 ********************************************************************************

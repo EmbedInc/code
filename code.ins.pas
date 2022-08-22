@@ -5,7 +5,10 @@
 const
   code_subsys_k = -72;                 {Embed subsystem ID for the CODE library}
   code_align_natural_k = -1;           {special ID for natural alignment}
-
+  {
+  *   Error status codes.  There is a ERRn message in the CODE.MSG for each of
+  *   these.
+  }
   code_stat_memsym_exist_k = 1;        {named memory already exists}
   code_stat_nomem_k = 2;               {no such named memory}
   code_stat_notmem_k = 3;              {name is not for a memory}
@@ -42,6 +45,7 @@ type
   code_case_p_t = ^code_case_t;
   code_iter_p_t = ^code_iter_t;
   code_comm_p_t = ^code_comm_t;
+  code_comm_pp_t = ^code_comm_p_t;
 
   code_memattr_k_t = (                 {types of attrutes to a memory or address space}
     code_memattr_rd_k,                 {read}
@@ -254,9 +258,8 @@ type
     code_ele_write_eol_k);             {write end of line to standard output}
 
   code_commty_k_t = (                  {types of comments}
-    code_commty_float_k,               {floating, not associated with specific code}
-    code_commty_block_k,               {applies to a block of code}
-    code_commty_eol_k);                {end of line, tags first char on line}
+    code_commty_block_k,               {block of comment lines}
+    code_commty_eol_k);                {end of line comment}
 {
 ****************************************
 *
@@ -326,18 +329,21 @@ code_symtype_adrreg_k: (               {address region}
     end;
 
   code_comm_t = record                 {one comment}
-    higher_p: code_comm_p_t;           {higher level comment also applying here}
+    prev_p: code_comm_p_t;             {previous block comments also applying here}
+    lnum: sys_int_machine_t;           {sequential source line number of last line}
     pos: fline_cpos_t;                 {start position of comment in source files}
     commty: code_commty_k_t;           {comment type}
     case code_commty_k_t of
-code_commty_float_k: (                 {floating comment block}
-      float_list_p: string_fwlist_p_t; {points to list of comment text lines}
-      );
-code_commty_block_k: (                 {comment for block of code}
+code_commty_block_k: (                 {block of comment lines}
+      block_level: sys_int_machine_t;  {nesting level, top = 0}
       block_list_p: string_fwlist_p_t; {points to list of comment text lines}
+      block_last_p: string_fwlist_p_t; {points to last comment line in list}
+      block_keep: boolean;             {keep in previous list of this level}
       );
 code_commty_eol_k: (                   {end of line comment}
+      eol_prev_p: code_comm_p_t;       {to previous end of line comment}
       eol_str_p: string_var_p_t;       {the comment text string}
+      eol_used: boolean;               {this EOL comment has been applied}
       );
     end;
 
@@ -768,6 +774,8 @@ code_ele_write_eol_k: (                {write end of line to standard output}
     memsym: string_hash_handle_t;      {symbol table for memories and address spaces}
     symlen_max: sys_int_machine_t;     {max supported length of other symbols}
     n_symbuck: sys_int_machine_t;      {number of hash buckets in other sym tables}
+    comm_block_p: code_comm_p_t;       {to current hiearchy of block comments}
+    comm_eol_p: code_comm_p_t;         {to latest end of line comment}
     end;
 {
 *   Functions and subroutines.
@@ -798,6 +806,42 @@ procedure code_adrsp_new (             {create a new named address space}
   in      name: univ string_var_arg_t; {name of new adr space}
   out     adrsp_p: code_adrspace_p_t;  {returned pointer to the adr space, NIL on err}
   out     stat: sys_err_t);            {completion status}
+  val_param; extern;
+
+procedure code_alloc_perm (            {alloc mem under CODE context, can't individually dealloc}
+  in out  code: code_t;                {CODE library use state}
+  in      size: sys_int_adr_t;         {amount of memory to allocate, bytes}
+  out     new_p: univ_ptr);            {returned pointer to the new memory}
+  val_param; extern;
+
+procedure code_comm_find (             {returns pointer to comments applying at position}
+  in out  code: code_t;                {CODE library use state}
+  in      lnum: sys_int_machine_t;     {sequential line number}
+  in      level: sys_int_machine_t;    {0-N nesting level}
+  out     comm_p: code_comm_p_t);      {returned pointer to comments, may be NIL}
+  val_param; extern;
+
+procedure code_comm_keep (             {keep last block comment in previous comm list}
+  in out  code: code_t;                {CODE library use state}
+  in      lnum: sys_int_machine_t;     {sequential line number of last comment line in block}
+  out     comm_p: code_comm_p_t);      {comment created or added to, NIL on no matching block}
+  val_param; extern;
+
+procedure code_comm_new_block (        {add new block comment line to system}
+  in out  code: code_t;                {CODE library use state}
+  in      str_p: string_var_p_t;       {pointer to comment text}
+  in      pos: fline_cpos_t;           {source position of new comment line}
+  in      lnum: sys_int_machine_t;     {sequential line number}
+  in      level: sys_int_machine_t;    {0-N nesting level}
+  out     comm_p: code_comm_p_t);      {returned pointing to comment created or added to}
+  val_param; extern;
+
+procedure code_comm_new_eol (          {add new end of line comment to system}
+  in out  code: code_t;                {CODE library use state}
+  in      str_p: string_var_p_t;       {pointer to comment text}
+  in      pos: fline_cpos_t;           {source position of new comment line}
+  in      lnum: sys_int_machine_t;     {sequential line number}
+  out     comm_p: code_comm_p_t);      {returned pointing to comment created or added to}
   val_param; extern;
 
 procedure code_lib_def (               {set library creation parameters to default}

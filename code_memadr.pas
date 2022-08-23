@@ -12,6 +12,8 @@ define code_adrsp_new;
 define code_adrsp_find;
 define code_adrreg_new;
 define code_adrreg_find;
+define code_memsym_show;
+define code_memsym_show_all;
 %include 'code2.ins.pas';
 {
 ********************************************************************************
@@ -457,4 +459,159 @@ begin
     end;
 
   adrreg_p := sym_p^.adrreg_p;         {return pointer to the memory region}
+  end;
+{
+********************************************************************************
+*
+*   Local subroutine SHOW_ATTR (ATTR, INDENT)
+*
+*   Show the attributes ATTR.
+}
+procedure show_attr (                  {show attributes}
+  in      attr: code_memattr_t;        {attributes to show}
+  in      indent: sys_int_machine_t);  {number of spaces to indent all output}
+  val_param; internal;
+
+begin
+  string_nblanks (indent);
+  write ('Attributes:');
+  if code_memattr_rd_k in attr then write (' READ');
+  if code_memattr_wr_k in attr then write (' WRITE');
+  if code_memattr_nv_k in attr then write (' NON-VOLATILE');
+  if code_memattr_ex_k in attr then write (' EXECUTE');
+  writeln;
+  end;
+{
+********************************************************************************
+*
+*   Subroutine CODE_MEMSYM_SHOW (SYM, INDENT)
+*
+*   Show the details of the memory/address symbol SYM.
+}
+procedure code_memsym_show (           {show details of one mem/adr symbol}
+  in      sym: code_memadr_sym_t;      {mem/adr symbol to show data of}
+  in      indent: sys_int_machine_t);  {number of spaces to indent all output}
+  val_param;
+
+var
+  mreg_p: code_memregion_p_t;          {pointer to memory region}
+  areg_p: code_adrregion_p_t;          {pointer to address region}
+  mreg_ent_p: code_memreg_ent_p_t;     {pointer to memory region list entry}
+  tk: string_var32_t;                  {scratch token}
+
+begin
+  tk.max := size_char(tk.str);         {init local var string}
+
+  case sym.symtype of
+
+code_symtype_memory_k: begin           {memory}
+      string_nblanks (indent);
+      writeln ('MEMORY "', sym.name_p^.str:sym.name_p^.len, '"');
+
+      string_nblanks (indent+2);
+      write ('Regions:');
+      mreg_p := sym.memory_p^.region_p;
+      while mreg_p <> nil do begin
+        write (' ', mreg_p^.sym_p^.name_p^.str:mreg_p^.sym_p^.name_p^.len);
+        mreg_p := mreg_p^.next_p;
+        end;
+      writeln;
+
+      string_nblanks (indent+2);
+      writeln ('Address bits ', sym.memory_p^.bitsadr,
+        ' Data bits ', sym.memory_p^.bitsdat);
+
+      show_attr (sym.memory_p^.attr, indent+2);
+      end;
+
+code_symtype_memreg_k: begin           {memory region}
+      string_nblanks (indent);
+      writeln ('MEMORY REGION "', sym.name_p^.str:sym.name_p^.len, '" in memory "',
+        sym.memreg_p^.mem_p^.sym_p^.name_p^.str:sym.memreg_p^.mem_p^.sym_p^.name_p^.len, '"');
+
+      string_nblanks (indent+2);
+      write ('Address range ');
+      string_f_int32h (tk, sym.memreg_p^.adrst);
+      write (tk.str:tk.len, 'h to ');
+      string_f_int32h (tk, sym.memreg_p^.adren);
+      writeln (tk.str:tk.len, 'h');
+      end;
+
+code_symtype_adrsp_k: begin            {address space}
+      string_nblanks (indent);
+      writeln ('ADDRESS SPACE "', sym.name_p^.str:sym.name_p^.len, '"');
+
+      string_nblanks (indent+2);
+      write ('Regions:');
+      areg_p := sym.adrsp_p^.region_p;
+      while areg_p <> nil do begin
+        write (' ', areg_p^.sym_p^.name_p^.str:areg_p^.sym_p^.name_p^.len);
+        areg_p := areg_p^.next_p;
+        end;
+      writeln;
+
+      string_nblanks (indent+2);
+      writeln ('Address bits ', sym.adrsp_p^.bitsadr,
+        ' Data bits ', sym.adrsp_p^.bitsdat);
+
+      show_attr (sym.adrsp_p^.attr, indent+2);
+      end;
+
+code_symtype_adrreg_k: begin           {address region}
+      string_nblanks (indent);
+      writeln ('ADDRESS REGION "', sym.name_p^.str:sym.name_p^.len, '" in address space "',
+        sym.adrreg_p^.space_p^.sym_p^.name_p^.str:sym.adrreg_p^.space_p^.sym_p^.name_p^.len, '"');
+
+      string_nblanks (indent+2);
+      write ('Address range ');
+      string_f_int32h (tk, sym.adrreg_p^.adrst);
+      write (tk.str:tk.len, 'h to ');
+      string_f_int32h (tk, sym.adrreg_p^.adren);
+      writeln (tk.str:tk.len, 'h');
+
+      string_nblanks (indent+2);
+      write ('Mapped to mem regions:');
+      mreg_ent_p := sym.adrreg_p^.memreg_p;
+      while mreg_ent_p <> nil do begin
+        write (' ', mreg_ent_p^.region_p^.sym_p^.name_p^.str:mreg_ent_p^.region_p^.sym_p^.name_p^.len);
+        mreg_ent_p := mreg_ent_p^.next_p;
+        end;
+      writeln;
+
+      show_attr (sym.adrsp_p^.attr, indent+2);
+      end;
+
+    end;                               {end of memory/address symbol type cases}
+
+  if sym.comm_p <> nil then begin
+    string_nblanks (indent+2);
+    writeln ('Comments:');
+    code_comm_show (sym.comm_p, indent+4);
+    end;
+  end;
+{
+********************************************************************************
+*
+*   Subroutine CODE_MEMSYM_SHOW_ALL (CODE, INDENT)
+*
+*   Show the details of all memory/address symbols that are currently defined.
+}
+procedure code_memsym_show_all (       {show details of all mem/adr symbols}
+  in out  code: code_t;                {CODE library use state}
+  in      indent: sys_int_machine_t);  {number of spaces to indent all output}
+  val_param;
+
+var
+  pos: string_hash_pos_t;              {position into symbol table}
+  found: boolean;                      {symbol table entry exists}
+  name_p: string_var_p_t;              {pointer to symbol name in symbol table}
+  sym_p: code_memadr_sym_p_t;          {pointer to symbol data in symbol table}
+
+begin
+  string_hash_pos_first (code.memsym, pos, found); {to first symbol table entry}
+  while found do begin                 {loop over all symbols in symbol table}
+    string_hash_ent_atpos (pos, name_p, sym_p); {get data for this table entry}
+    code_memsym_show (sym_p^, indent); {show this symbol}
+    string_hash_pos_next (pos, found); {to next symbol in symbol table}
+    end;
   end;

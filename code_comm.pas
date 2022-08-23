@@ -5,6 +5,8 @@ define code_comm_new_block;
 define code_comm_new_eol;
 define code_comm_keep;
 define code_comm_find;
+define code_comm_show1;
+define code_comm_show;
 %include 'code2.ins.pas';
 {
 ********************************************************************************
@@ -201,4 +203,75 @@ begin
     comm_p := comm_p^.prev_p;          {back to previous block comment}
     end;
 
+  end;
+{
+********************************************************************************
+*
+*   Subroutine CODE_COMM_SHOW1 (COMM, INDENT)
+*
+*   Show the contents of the single comment descriptor, COMM.
+}
+procedure code_comm_show1 (            {show contents of single comment descriptor}
+  in      comm: code_comm_t;           {the comment to show contents of}
+  in      indent: sys_int_machine_t);  {number of spaces to indent all output}
+  val_param;
+
+var
+  slent_p: string_fwlist_p_t;          {points to string list entry}
+
+begin
+  case comm.commty of                  {what type of comment is it ?}
+
+code_commty_block_k: begin             {block comment}
+      string_nblanks (indent);
+      writeln ('Block comment on line ', comm.pos.line_p^.lnum,
+        ', level ', comm.block_level, ':');
+      slent_p := comm.block_list_p;    {init to first comment line}
+      while slent_p <> nil do begin
+        string_nblanks (indent+2);
+        writeln ('|', slent_p^.str_p^.str:slent_p^.str_p^.len);
+        slent_p := slent_p^.next_p;
+        end;
+      end;
+
+code_commty_eol_k: begin               {end of line comment}
+      string_nblanks (indent);
+      writeln ('End of line comment:');
+      string_nblanks (indent+2);
+      writeln (comm.eol_str_p^.str:comm.eol_str_p^.len);
+      end;
+
+otherwise
+    writeln ('Unrecognized comment of type ', ord(comm.commty));
+    end;
+  end;
+{
+********************************************************************************
+*
+*   Subroutine CODE_COMM_SHOW (COMM_P, INDENT)
+*
+*   Show the contents of the hierarchy of comments pointed to by COMM_P.  It is
+*   permissible for COMM_P to be NIL.  In that case, a message is written to
+*   indicate no comments.
+}
+procedure code_comm_show (             {show comment hierarchy on STDOUT, for debugging}
+  in      comm_p: code_comm_p_t;       {pointer to comments, may be NIL}
+  in      indent: sys_int_machine_t);  {number of spaces to indent all output}
+  val_param;
+
+var
+  com_p: code_comm_p_t;                {pointer to current comment}
+
+begin
+  if comm_p = nil then begin           {no comments ?}
+    string_nblanks (indent);
+    writeln ('-- no comments --');
+    return;
+    end;
+
+  com_p := comm_p;                     {init to first comment in hierarchy}
+  while com_p <> nil do begin          {scan up the comments hierarchy}
+    code_comm_show1 (com_p^, indent);  {show this comment}
+    com_p := com_p^.prev_p;            {to previous comment}
+    end;
   end;

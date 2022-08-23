@@ -844,6 +844,16 @@ procedure code_comm_new_eol (          {add new end of line comment to system}
   out     comm_p: code_comm_p_t);      {returned pointing to comment created or added to}
   val_param; extern;
 
+procedure code_comm_show (             {show comment hierarchy on STDOUT, for debugging}
+  in      comm_p: code_comm_p_t;       {pointer to comments, may be NIL}
+  in      indent: sys_int_machine_t);  {number of spaces to indent all output}
+  val_param; extern;
+
+procedure code_comm_show1 (            {show contents of single comment descriptor}
+  in      comm: code_comm_t;           {the comment to show contents of}
+  in      indent: sys_int_machine_t);  {number of spaces to indent all output}
+  val_param; extern;
+
 procedure code_lib_def (               {set library creation parameters to default}
   out     cfg: code_inicfg_t);         {parameters for creating a library use}
   val_param; extern;
@@ -890,4 +900,14 @@ procedure code_memsym_find (           {find mem, mem region, adr, adr region by
   in      code: code_t;                {CODE library use state}
   in      name: univ string_var_arg_t; {name of mem/adr symbol to find}
   out     memsym_p: code_memadr_sym_p_t); {returned pointer to symbol, NIL if none}
+  val_param; extern;
+
+procedure code_memsym_show (           {show details of one mem/adr symbol}
+  in      sym: code_memadr_sym_t;      {mem/adr symbol to show data of}
+  in      indent: sys_int_machine_t);  {number of spaces to indent all output}
+  val_param; extern;
+
+procedure code_memsym_show_all (       {show details of all mem/adr symbols}
+  in out  code: code_t;                {CODE library use state}
+  in      indent: sys_int_machine_t);  {number of spaces to indent all output}
   val_param; extern;

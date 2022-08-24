@@ -790,6 +790,7 @@ procedure code_adrreg_find (           {find adr region by name, error if not ex
 procedure code_adrreg_new (            {create a new named address region}
   in out  code: code_t;                {CODE library use state}
   in      name: univ string_var_arg_t; {name of new adr region}
+  in      adrname: univ string_var_arg_t; {name of address space this region is within}
   out     adrreg_p: code_adrregion_p_t; {returned pointer to the adr region, NIL on err}
   out     stat: sys_err_t);            {completion status}
   val_param; extern;
@@ -892,6 +893,7 @@ procedure code_memreg_find (           {find memory region by name, error if not
 procedure code_memreg_new (            {create a new named memory region}
   in out  code: code_t;                {CODE library use state}
   in      name: univ string_var_arg_t; {name of new memory region}
+  in      memname: univ string_var_arg_t; {name of memory this region is within}
   out     memreg_p: code_memregion_p_t; {returned pointer to the mem region, NIL on err}
   out     stat: sys_err_t);            {completion status}
   val_param; extern;

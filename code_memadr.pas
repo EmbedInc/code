@@ -234,7 +234,7 @@ begin
 {
 ********************************************************************************
 *
-*   Subroutine CODE_MEMREG_NEW (CODE, NAME, MEMREG_P, STAT)
+*   Subroutine CODE_MEMREG_NEW (CODE, NAME, MEMNAME, MEMREG_P, STAT)
 *
 *   Create a new memory region.  It is an error if the name is already in use as
 *   a memory, address, or mem/adr region.  MEM_P is returned pointing to the new
@@ -243,12 +243,14 @@ begin
 procedure code_memreg_new (            {create a new named memory region}
   in out  code: code_t;                {CODE library use state}
   in      name: univ string_var_arg_t; {name of new memory region}
+  in      memname: univ string_var_arg_t; {name of memory this region is within}
   out     memreg_p: code_memregion_p_t; {returned pointer to the mem region, NIL on err}
   out     stat: sys_err_t);            {completion status}
   val_param;
 
 var
   sym_p: code_memadr_sym_p_t;          {pointer to new symbol data in symbol table}
+  mem_p: code_memory_p_t;              {pointer to parent memory}
 
 begin
   memsym_new (code, name, sym_p, stat); {create just the bare new symbol}
@@ -260,12 +262,22 @@ begin
   sym_p^.symtype := code_symtype_memreg_k; {new symbol is for a memory region}
   sym_p^.memreg_p := memreg_p;
 
-  memreg_p^.next_p := nil;
+  memreg_p^.next_p := nil;             {init the memory region descriptor}
   memreg_p^.sym_p := sym_p;
   memreg_p^.mem_p := nil;
   memreg_p^.adrst := 0;
   memreg_p^.adren := 0;
   memreg_p^.attr := [];
+{
+*   Link to the memory this region is within, and add this region to the list of
+*   regions within the memory.
+}
+  code_mem_find (code, memname, mem_p, stat); {get pointer to parent memory}
+  if sys_error(stat) then return;
+  memreg_p^.mem_p := mem_p;            {link mem region to its parent memory}
+
+  memreg_p^.next_p := mem_p^.region_p; {add to list of regions in parent memory}
+  mem_p^.region_p := memreg_p;
   end;
 {
 ********************************************************************************
@@ -395,12 +407,14 @@ begin
 procedure code_adrreg_new (            {create a new named address region}
   in out  code: code_t;                {CODE library use state}
   in      name: univ string_var_arg_t; {name of new adr region}
+  in      adrname: univ string_var_arg_t; {name of address space this region is within}
   out     adrreg_p: code_adrregion_p_t; {returned pointer to the adr region, NIL on err}
   out     stat: sys_err_t);            {completion status}
   val_param;
 
 var
   sym_p: code_memadr_sym_p_t;          {pointer to new symbol data in symbol table}
+  adr_p: code_adrspace_p_t;            {pointer to parent address space}
 
 begin
   memsym_new (code, name, sym_p, stat); {create just the bare new symbol}
@@ -419,6 +433,16 @@ begin
   adrreg_p^.adren := 0;
   adrreg_p^.memreg_p := nil;
   adrreg_p^.attr := [];
+{
+*   Link to the address space this region is within, and add this region to the
+*   list of regions within the address space.
+}
+  code_adrsp_find (code, adrname, adr_p, stat); {get pointer to parent adr space}
+  if sys_error(stat) then return;
+  adrreg_p^.space_p := adr_p;          {link adr region to its parent adr space}
+
+  adrreg_p^.next_p := adr_p^.region_p; {add to list of regions in parent adr space}
+  adr_p^.region_p := adrreg_p;
   end;
 {
 ********************************************************************************
@@ -474,7 +498,7 @@ procedure show_attr (                  {show attributes}
 
 begin
   string_nblanks (indent);
-  write ('Attributes:');
+  write ('Access:');
   if code_memattr_rd_k in attr then write (' READ');
   if code_memattr_wr_k in attr then write (' WRITE');
   if code_memattr_nv_k in attr then write (' NON-VOLATILE');
@@ -534,7 +558,11 @@ code_symtype_memreg_k: begin           {memory region}
       string_f_int32h (tk, sym.memreg_p^.adrst);
       write (tk.str:tk.len, 'h to ');
       string_f_int32h (tk, sym.memreg_p^.adren);
+      write (tk.str:tk.len, 'h, Length ');
+      string_f_int32h (tk, sym.memreg_p^.adren - sym.memreg_p^.adrst + 1);
       writeln (tk.str:tk.len, 'h');
+
+      show_attr (sym.memreg_p^.attr, indent+2);
       end;
 
 code_symtype_adrsp_k: begin            {address space}
@@ -567,6 +595,8 @@ code_symtype_adrreg_k: begin           {address region}
       string_f_int32h (tk, sym.adrreg_p^.adrst);
       write (tk.str:tk.len, 'h to ');
       string_f_int32h (tk, sym.adrreg_p^.adren);
+      write (tk.str:tk.len, 'h, Length ');
+      string_f_int32h (tk, sym.adrreg_p^.adren - sym.adrreg_p^.adrst + 1);
       writeln (tk.str:tk.len, 'h');
 
       string_nblanks (indent+2);

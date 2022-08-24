@@ -47,11 +47,14 @@ type
   code_comm_p_t = ^code_comm_t;
   code_comm_pp_t = ^code_comm_p_t;
 
-  code_memattr_k_t = (                 {types of attrutes to a memory or address space}
-    code_memattr_rd_k,                 {read}
-    code_memattr_wr_k,                 {write}
-    code_memattr_nv_k,                 {memory is non-volatile}
-    code_memattr_ex_k);                {execute}
+  code_memaccs_k_t = (                 {types of access to a memory or address space}
+    code_memaccs_rd_k,                 {read}
+    code_memaccs_wr_k,                 {write}
+    code_memaccs_ex_k);                {execute}
+  code_memaccs_t = set of code_memaccs_k_t;
+
+  code_memattr_k_t = (                 {memory or address space attributes}
+    code_memattr_nv_k);                {memory is non-volatile}
   code_memattr_t = set of code_memattr_k_t;
 
   code_symtype_k_t = (                 {all the different symbol types}
@@ -273,6 +276,7 @@ type
     region_p: code_memregion_p_t;      {points to list of regions within this memory}
     bitsadr: sys_int_machine_t;        {number of bits in address}
     bitsdat: sys_int_machine_t;        {number of bits per addressable word}
+    accs: code_memaccs_t;              {types of access to this memory}
     attr: code_memattr_t;              {additional attibute flags}
     end;
 
@@ -282,7 +286,7 @@ type
     mem_p: code_memory_p_t;            {memory this region is within}
     adrst: sys_int_conv32_t;           {start address of this region within the memory}
     adren: sys_int_conv32_t;           {end address of this region within the memory}
-    attr: code_memattr_t;              {additional attibute flags}
+    accs: code_memaccs_t;              {types of access to this memory}
     end;
 
   code_memreg_ent_t = record           {one entry in list of memory regions}
@@ -295,7 +299,7 @@ type
     region_p: code_adrregion_p_t;      {points to list of regions within this adr space}
     bitsadr: sys_int_machine_t;        {number of bits in address}
     bitsdat: sys_int_machine_t;        {number of bits per addressable word}
-    attr: code_memattr_t;              {additional attibute flags}
+    accs: code_memaccs_t;              {types of access to this memory}
     end;
 
   code_adrregion_t = record            {region of address space with consistant attributes}
@@ -305,7 +309,7 @@ type
     adrst: sys_int_conv32_t;           {start address of this region within adr space}
     adren: sys_int_conv32_t;           {end address of this region within adr space}
     memreg_p: code_memreg_ent_p_t;     {list of mem regions mapped to this adr region}
-    attr: code_memattr_t;              {additional attibute flags}
+    accs: code_memaccs_t;              {types of access to this memory}
     end;
 
   code_memadr_sym_t = record           {memory and address regions symbol table data}

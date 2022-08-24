@@ -189,6 +189,7 @@ begin
   mem_p^.region_p := nil;
   mem_p^.bitsadr := 0;
   mem_p^.bitsdat := 0;
+  mem_p^.accs := [];
   mem_p^.attr := [];
   end;
 {
@@ -267,7 +268,7 @@ begin
   memreg_p^.mem_p := nil;
   memreg_p^.adrst := 0;
   memreg_p^.adren := 0;
-  memreg_p^.attr := [];
+  memreg_p^.accs := [];
 {
 *   Link to the memory this region is within, and add this region to the list of
 *   regions within the memory.
@@ -352,7 +353,7 @@ begin
   adrsp_p^.region_p := nil;
   adrsp_p^.bitsadr := 0;
   adrsp_p^.bitsdat := 0;
-  adrsp_p^.attr := [];
+  adrsp_p^.accs := [];
   end;
 {
 ********************************************************************************
@@ -432,7 +433,7 @@ begin
   adrreg_p^.adrst := 0;
   adrreg_p^.adren := 0;
   adrreg_p^.memreg_p := nil;
-  adrreg_p^.attr := [];
+  adrreg_p^.accs := [];
 {
 *   Link to the address space this region is within, and add this region to the
 *   list of regions within the address space.
@@ -489,7 +490,7 @@ begin
 *
 *   Local subroutine SHOW_ATTR (ATTR, INDENT)
 *
-*   Show the attributes ATTR.
+*   Show the memory attributes specified by ATTR.
 }
 procedure show_attr (                  {show attributes}
   in      attr: code_memattr_t;        {attributes to show}
@@ -498,11 +499,28 @@ procedure show_attr (                  {show attributes}
 
 begin
   string_nblanks (indent);
-  write ('Access:');
-  if code_memattr_rd_k in attr then write (' READ');
-  if code_memattr_wr_k in attr then write (' WRITE');
+  write ('Attributes:');
   if code_memattr_nv_k in attr then write (' NON-VOLATILE');
-  if code_memattr_ex_k in attr then write (' EXECUTE');
+  writeln;
+  end;
+{
+********************************************************************************
+*
+*   Local subroutine SHOW_ACCS (ACCS, INDENT)
+*
+*   Show the accesses specifies by ACCS.
+}
+procedure show_accs (                  {show access}
+  in      accs: code_memaccs_t;        {accesses to show}
+  in      indent: sys_int_machine_t);  {number of spaces to indent all output}
+  val_param; internal;
+
+begin
+  string_nblanks (indent);
+  write ('Access:');
+  if code_memaccs_rd_k in accs then write (' READ');
+  if code_memaccs_wr_k in accs then write (' WRITE');
+  if code_memaccs_ex_k in accs then write (' EXECUTE');
   writeln;
   end;
 {
@@ -546,6 +564,7 @@ code_symtype_memory_k: begin           {memory}
         ' Data bits ', sym.memory_p^.bitsdat);
 
       show_attr (sym.memory_p^.attr, indent+2);
+      show_accs (sym.memory_p^.accs, indent+2);
       end;
 
 code_symtype_memreg_k: begin           {memory region}
@@ -562,7 +581,7 @@ code_symtype_memreg_k: begin           {memory region}
       string_f_int32h (tk, sym.memreg_p^.adren - sym.memreg_p^.adrst + 1);
       writeln (tk.str:tk.len, 'h');
 
-      show_attr (sym.memreg_p^.attr, indent+2);
+      show_accs (sym.memreg_p^.accs, indent+2);
       end;
 
 code_symtype_adrsp_k: begin            {address space}
@@ -582,7 +601,7 @@ code_symtype_adrsp_k: begin            {address space}
       writeln ('Address bits ', sym.adrsp_p^.bitsadr,
         ' Data bits ', sym.adrsp_p^.bitsdat);
 
-      show_attr (sym.adrsp_p^.attr, indent+2);
+      show_accs (sym.adrsp_p^.accs, indent+2);
       end;
 
 code_symtype_adrreg_k: begin           {address region}
@@ -608,7 +627,7 @@ code_symtype_adrreg_k: begin           {address region}
         end;
       writeln;
 
-      show_attr (sym.adrsp_p^.attr, indent+2);
+      show_accs (sym.adrreg_p^.accs, indent+2);
       end;
 
     end;                               {end of memory/address symbol type cases}

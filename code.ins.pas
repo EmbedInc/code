@@ -18,6 +18,7 @@ const
   code_stat_notadrsp_k = 7;            {name is not for a address space}
   code_stat_noadrreg_k = 8;            {no such named address region}
   code_stat_notadrreg_k = 9;           {name is not for a address region}
+  code_stat_mreg_inlist_k = 10;        {memory region is already in the list}
 
 type
   code_memory_p_t = ^code_memory_t;
@@ -799,6 +800,13 @@ procedure code_adrreg_new (            {create a new named address region}
   out     stat: sys_err_t);            {completion status}
   val_param; extern;
 
+procedure code_adrreg_memreg_add (     {add mapped-to mem region to address region}
+  in out  code: code_t;                {CODE library use state}
+  in out  adrreg: code_adrregion_t;    {address region to add mapping to}
+  in var  memreg: code_memregion_t;    {memory region being added}
+  out     stat: sys_err_t);            {completion status}
+  val_param; extern;
+
 procedure code_adrsp_find (            {find adr space by name, error if not exist}
   in      code: code_t;                {CODE library use state}
   in      name: univ string_var_arg_t; {name of adr space to find}
@@ -892,6 +900,13 @@ procedure code_memreg_find (           {find memory region by name, error if not
   in      name: univ string_var_arg_t; {name of memory region to find}
   out     memreg_p: code_memregion_p_t; {returned pointer to the mem region, NIL on err}
   out     stat: sys_err_t);            {completion status}
+  val_param; extern;
+
+function memreg_list_add (             {add entry to memory regions list}
+  in out  code: code_t;                {CODE library use state}
+  in out  list_p: code_memreg_ent_p_t; {pointer to list, may be NIL, updated}
+  in var  memreg: code_memregion_t)    {memory region to add to the list}
+  :boolean;                            {added, not duplicate}
   val_param; extern;
 
 procedure code_memreg_new (            {create a new named memory region}

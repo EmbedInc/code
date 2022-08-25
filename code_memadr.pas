@@ -12,6 +12,8 @@ define code_adrsp_new;
 define code_adrsp_find;
 define code_adrreg_new;
 define code_adrreg_find;
+define code_memreg_list_add;
+define code_adrreg_memreg_add;
 define code_memsym_show;
 define code_memsym_show_all;
 %include 'code2.ins.pas';
@@ -488,6 +490,86 @@ begin
 {
 ********************************************************************************
 *
+*   Function MEMREG_LIST_ADD (CODE, LIST_P, MEMREG)
+*
+*   Added the memory region MEMREG to the list of memory regions pointed to by
+*   LIST_P.  LIST_P may be NIL initially.  It is always returned pointing to the
+*   updated complete list.  The function returns TRUE if a new entry was added
+*   to the list, and FALSE if MEMREG was already in the list.  In the latter
+*   nothing else is done.
+}
+function memreg_list_add (             {add entry to memory regions list}
+  in out  code: code_t;                {CODE library use state}
+  in out  list_p: code_memreg_ent_p_t; {pointer to list, may be NIL, updated}
+  in var  memreg: code_memregion_t)    {memory region to add to the list}
+  :boolean;                            {added, not duplicate}
+  val_param;
+
+var
+  ent_p: code_memreg_ent_p_t;          {pointer to list entry}
+  last_p: code_memreg_ent_p_t;         {pointer to last list entry}
+
+begin
+  memreg_list_add := true;             {init to new entry added}
+{
+*   Check for duplicate, find last list entry.
+}
+  ent_p := list_p;                     {init to first entry}
+  while ent_p <> nil do begin          {scan the list}
+    if ent_p^.region_p = addr(memreg) then begin {mem region already in list ?}
+      memreg_list_add := false;
+      return;
+      end;
+    last_p := ent_p;                   {update pointer to last list entry}
+    ent_p := ent_p^.next_p;            {to next list entry}
+    end;                               {back to check this new list entry}
+{
+*   MEMREG is not already in the list.  LAST_P is pointing to the last list
+*   entry unless the list is empty.  An empty list is indicated by LIST_P being
+*   NIL.
+}
+  code_alloc_perm (code, sizeof(ent_p), ent_p); {create new list entry}
+  ent_p^.next_p := nil;                {fill in the new list entry}
+  ent_p^.region_p := addr(memreg);
+
+  if list_p = nil
+    then begin                         {no existing list}
+      list_p := ent_p;                 {pass back pointer to this only entry}
+      end
+    else begin                         {adding to existing list}
+      last_p^.next_p := ent_p;         {link new entry to end of list}
+      end
+    ;
+  end;
+{
+********************************************************************************
+*
+*   Subroutine CODE_ADRREG_MEMREG_ADD (CODE, ADRREG, MEMREG, STAT)
+*
+*   Add a memory region to and address region descriptor.  ADRREG is the address
+*   region descriptor being added to.  MEMREG is an additional memory region
+*   that the address region can map to.
+}
+procedure code_adrreg_memreg_add (     {add mapped-to mem region to address region}
+  in out  code: code_t;                {CODE library use state}
+  in out  adrreg: code_adrregion_t;    {address region to add mapping to}
+  in var  memreg: code_memregion_t;    {memory region being added}
+  out     stat: sys_err_t);            {completion status}
+  val_param;
+
+begin
+  if not memreg_list_add (code, adrreg.memreg_p, memreg) then begin {add to list}
+    sys_stat_set (code_subsys_k, code_stat_mreg_inlist_k, stat);
+    sys_stat_parm_vstr (adrreg.sym_p^.name_p^, stat);
+    sys_stat_parm_vstr (memreg.sym_p^.name_p^, stat);
+    return;
+    end;
+
+  sys_error_none (stat);               {indicate success}
+  end;
+{
+********************************************************************************
+*
 *   Local subroutine SHOW_ATTR (ATTR, INDENT)
 *
 *   Show the memory attributes specified by ATTR.
@@ -539,6 +621,7 @@ var
   mreg_p: code_memregion_p_t;          {pointer to memory region}
   areg_p: code_adrregion_p_t;          {pointer to address region}
   mreg_ent_p: code_memreg_ent_p_t;     {pointer to memory region list entry}
+  len: sys_int_conv32_t;               {memory length}
   tk: string_var32_t;                  {scratch token}
 
 begin
@@ -578,8 +661,9 @@ code_symtype_memreg_k: begin           {memory region}
       write (tk.str:tk.len, 'h to ');
       string_f_int32h (tk, sym.memreg_p^.adren);
       write (tk.str:tk.len, 'h, Length ');
-      string_f_int32h (tk, sym.memreg_p^.adren - sym.memreg_p^.adrst + 1);
-      writeln (tk.str:tk.len, 'h');
+      len := sym.memreg_p^.adren - sym.memreg_p^.adrst + 1;
+      string_f_int32h (tk, len);
+      writeln (tk.str:tk.len, 'h (', len, ')');
 
       show_accs (sym.memreg_p^.accs, indent+2);
       end;
@@ -615,8 +699,9 @@ code_symtype_adrreg_k: begin           {address region}
       write (tk.str:tk.len, 'h to ');
       string_f_int32h (tk, sym.adrreg_p^.adren);
       write (tk.str:tk.len, 'h, Length ');
-      string_f_int32h (tk, sym.adrreg_p^.adren - sym.adrreg_p^.adrst + 1);
-      writeln (tk.str:tk.len, 'h');
+      len := sym.memreg_p^.adren - sym.memreg_p^.adrst + 1;
+      string_f_int32h (tk, len);
+      writeln (tk.str:tk.len, 'h (', len, ')');
 
       string_nblanks (indent+2);
       write ('Mapped to mem regions:');

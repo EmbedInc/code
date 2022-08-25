@@ -28,3 +28,6 @@ msg err8
 msg err9
   lan english -def
     "%p1s" is not a address region.
+msg err10
+  lan english -def
+    Memory region "%p2s" was previously mapped to from address region "%p1s".

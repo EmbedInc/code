@@ -21,32 +21,35 @@ const
   code_stat_mreg_inlist_k = 10;        {memory region is already in the list}
 
 type
-  code_memory_p_t = ^code_memory_t;
-  code_memregion_p_t = ^code_memregion_t;
-  code_memreg_ent_p_t = ^code_memreg_ent_t;
-  code_adrspace_p_t = ^code_adrspace_t;
   code_adrregion_p_t = ^code_adrregion_t;
-  code_memadr_sym_p_t = ^code_memadr_sym_t;
-  code_value_p_t = ^code_value_t;
-  code_val_set_p_t = ^code_val_set_t;
-  code_scope_p_t = ^code_scope_t;
-  code_symbol_p_t = ^code_symbol_t;
-  code_sylist_p_t = ^code_sylist_t;
-  code_dtype_p_t = ^code_dtype_t;
-  code_exp_p_t = ^code_exp_t;
-  code_explist_p_t = ^code_explist_t;
-  code_symref_p_t = ^code_symref_t;
-  code_refmod_p_t = ^code_refmod_t;
-  code_proc_arg_p_t = ^code_proc_arg_t;
-  code_proc_p_t = ^code_proc_t;
+  code_adrspace_p_t = ^code_adrspace_t;
   code_call_arg_p_t = ^code_call_arg_t;
-  code_dumarg_p_t = ^code_dumarg_t;
-  code_ele_p_t = ^code_ele_t;
-  code_caseval_p_t = ^code_caseval_t;
   code_case_p_t = ^code_case_t;
-  code_iter_p_t = ^code_iter_t;
+  code_caseval_p_t = ^code_caseval_t;
   code_comm_p_t = ^code_comm_t;
   code_comm_pp_t = ^code_comm_p_t;
+  code_dtype_p_t = ^code_dtype_t;
+  code_dumarg_p_t = ^code_dumarg_t;
+  code_ele_p_t = ^code_ele_t;
+  code_exp_p_t = ^code_exp_t;
+  code_explist_p_t = ^code_explist_t;
+  code_iter_p_t = ^code_iter_t;
+  code_memadr_sym_p_t = ^code_memadr_sym_t;
+  code_memory_p_t = ^code_memory_t;
+  code_memreg_ent_p_t = ^code_memreg_ent_t;
+  code_memregion_p_t = ^code_memregion_t;
+  code_proc_arg_p_t = ^code_proc_arg_t;
+  code_proc_p_t = ^code_proc_t;
+  code_refmod_p_t = ^code_refmod_t;
+  code_scope_p_t = ^code_scope_t;
+  code_sylist_p_t = ^code_sylist_t;
+  code_sym_field_p_t = ^code_sym_field_t;
+  code_sym_proc_p_t = ^code_sym_proc_t;
+  code_sym_var_p_t = ^code_sym_var_t;
+  code_symbol_p_t = ^code_symbol_t;
+  code_symref_p_t = ^code_symref_t;
+  code_val_set_p_t = ^code_val_set_t;
+  code_value_p_t = ^code_value_t;
 
   code_memaccs_k_t = (                 {types of access to a memory or address space}
     code_memaccs_rd_k,                 {read}
@@ -95,7 +98,6 @@ type
     code_symflag_static_k);            {symbol represents storage that is static}
   code_symflag_t = set of code_symflag_k_t;
 
-
   code_typid_k_t = (                   {all the different data types}
     code_typid_undef_k,                {data type was referenced, but not defined yet}
     code_typid_undefp_k,               {data type is a pointer, but not defined yet}
@@ -113,6 +115,10 @@ type
     code_typid_vstr_k,                 {string with curr len and max len stored}
     code_typid_flxstr_k,               {string with extendable length}
     code_typid_copy_k);                {exact copy of another data type}
+
+  code_typflag_k_t = (                 {flags for data types}
+    code_typflag_pack_k);              {pack to min bits}
+  code_typflag_t = set of code_typflag_k_t;
 
   code_expid_k_t = (                   {IDs for different types of expressions}
     code_expid_const_k,                {constant}
@@ -269,6 +275,25 @@ type
 *
 *   Data structures.
 }
+  code_comm_t = record                 {one comment}
+    prev_p: code_comm_p_t;             {previous block comments also applying here}
+    lnum: sys_int_machine_t;           {sequential source line number of last line}
+    pos: fline_cpos_t;                 {start position of comment in source files}
+    commty: code_commty_k_t;           {comment type}
+    case code_commty_k_t of
+code_commty_block_k: (                 {block of comment lines}
+      block_level: sys_int_machine_t;  {nesting level, top = 0}
+      block_list_p: string_fwlist_p_t; {points to list of comment text lines}
+      block_last_p: string_fwlist_p_t; {points to last comment line in list}
+      block_keep: boolean;             {keep in previous list of this level}
+      );
+code_commty_eol_k: (                   {end of line comment}
+      eol_prev_p: code_comm_p_t;       {to previous end of line comment}
+      eol_str_p: string_var_p_t;       {the comment text string}
+      eol_used: boolean;               {this EOL comment has been applied}
+      );
+    end;
+
   {   Memories are where data is stored.  Address spaces are how the processor
   *   accesses that data.
   }
@@ -333,25 +358,6 @@ code_symtype_adrreg_k: (               {address region}
       );
     end;
 
-  code_comm_t = record                 {one comment}
-    prev_p: code_comm_p_t;             {previous block comments also applying here}
-    lnum: sys_int_machine_t;           {sequential source line number of last line}
-    pos: fline_cpos_t;                 {start position of comment in source files}
-    commty: code_commty_k_t;           {comment type}
-    case code_commty_k_t of
-code_commty_block_k: (                 {block of comment lines}
-      block_level: sys_int_machine_t;  {nesting level, top = 0}
-      block_list_p: string_fwlist_p_t; {points to list of comment text lines}
-      block_last_p: string_fwlist_p_t; {points to last comment line in list}
-      block_keep: boolean;             {keep in previous list of this level}
-      );
-code_commty_eol_k: (                   {end of line comment}
-      eol_prev_p: code_comm_p_t;       {to previous end of line comment}
-      eol_str_p: string_var_p_t;       {the comment text string}
-      eol_used: boolean;               {this EOL comment has been applied}
-      );
-    end;
-
   code_val_set_t =                     {one bit for each possible element in a set}
     array[0..0] of sys_int_conv32_t;   {32 bits stored in each array element}
 
@@ -402,6 +408,33 @@ code_typid_pnt_k: (                    {data type is a pointer}
     flags: code_scopeflag_t;           {set of individual flags}
     end;
 
+  code_sym_field_t = record            {unique data for sym that is field of aggregate}
+    dtype_p: code_dtype_p_t;           {points to data type for this field}
+    parent_p: code_dtype_p_t;          {points to data type that includes this field}
+    next_p: code_symbol_p_t;           {points to symbol for next field}
+    ofs_adr: sys_int_adr_t;            {machine adr offset from aggregate start}
+    ofs_bits: sys_int_machine_t;       {additional bits offset}
+    variant: sys_int_machine_t;        {sequential overlay number, 0 = base}
+    value: code_value_t;               {user ID for this overlay}
+    end;
+
+  code_sym_proc_t = record             {unique data for sym that is procedure}
+    proc_p: code_proc_p_t;             {procedure descriptor}
+    varscope_p: code_scope_p_t;        {points to scope for rest of procedure}
+    vardtype_p: code_dtype_p_t;        {points to data type for the procedure (not func ret)}
+    varfuncvar_p: code_symbol_p_t;     {points to function return "variable" symbol}
+    varmemreg_p: code_memreg_ent_p_t;  {points to list of mem regions routine may be in}
+    end;
+
+  code_sym_var_t = record              {unique data for sym that is a variable}
+    dtype_p: code_dtype_p_t;           {pointer to data type definition}
+    val_p: code_exp_p_t;               {points to initial value expression, if any}
+    arg_p: code_dumarg_p_t;            {points to arg descriptor if dummy argument}
+    com_p: code_symbol_p_t;            {points to common block symbol if in common}
+    next_p: code_symbol_p_t;           {points to next var in common block}
+    memreg_p: code_memreg_ent_p_t;     {points to list of mem regions variable may be in}
+    end;
+
   code_symbol_t = record               {all the data about one symbol}
     name_p: string_var_p_t;            {points to name as appeared in source code}
     comm_p: code_comm_p_t;             {related comments}
@@ -426,31 +459,16 @@ code_symtype_dtype_k: (                {symbol is a data type}
       dtype_dtype_p: code_dtype_p_t;   {points to data type descriptor}
       );
 code_symtype_field_k: (                {symbol is a field name of aggregate data type}
-      field_dtype_p: code_dtype_p_t;   {points to data type for this field}
-      field_parent_p: code_dtype_p_t;  {points to data type that includes this field}
-      field_next_p: code_symbol_p_t;   {points to symbol for next field}
-      field_ofs_adr: sys_int_adr_t;    {machine adr offset from aggregate start}
-      field_ofs_bits: sys_int_machine_t; {additional bits offset}
-      field_variant: sys_int_machine_t; {sequential overlay number, 0 = base}
-      field_calue: code_value_t;       {user ID for this overlay}
+      field_p: code_sym_field_p_t;     {to specific data for this symbol type}
       );
 code_symtype_var_k: (                  {symbol is a variable}
-      var_dtype_p: code_dtype_p_t;     {pointer to data type definition}
-      var_val_p: code_exp_p_t;         {points to initial value expression, if any}
-      var_arg_p: code_dumarg_p_t;      {points to arg descriptor if dummy argument}
-      var_com_p: code_symbol_p_t;      {points to common block symbol if in common}
-      var_next_p: code_symbol_p_t;     {points to next var in common block}
-      var_memreg_p: code_memreg_ent_p_t; {points to list of mem regions variable may be in}
+      var_p: code_sym_var_p_t;         {to specific data for this symbol type}
       );
 code_symtype_alias_k: (                {symbol is an alias for another symbol reference}
       alias_symref_p: code_symref_p_t; {points to symbol reference alias expands to}
       );
 code_symtype_proc_k: (                 {symbol is a procedure}
-      proc: code_proc_p_t;             {procedure descriptor}
-      proc_scope_p: code_scope_p_t;    {points to scope for rest of procedure}
-      proc_dtype_p: code_dtype_p_t;    {points to data type for the procedure (not func ret)}
-      proc_funcvar_p: code_symbol_p_t; {points to function return "variable" symbol}
-      proc_memreg_p: code_memreg_ent_p_t; {points to list of mem regions routine may be in}
+      proc_p: code_sym_proc_p_t;       {to specific data for this symbol type}
       );
 code_symtype_prog_k: (                 {symbol is a program name}
       prog_scope_p: code_scope_p_t;    {points to scope for rest of program}
@@ -477,12 +495,10 @@ code_symtype_label_k: (                {symbol is a statement label}
   code_dtype_t = record                {definition of a data type}
     symbol_p: code_symbol_p_t;         {points to symbol representing this data type}
     comm_p: code_comm_p_t;             {related comments}
-    typid: code_typid_k_t;             {data type ID, use CODE_TYPID_xxx_K}
-    bits_min: sys_int_machine_t;       {minimum bits could use for whole data type}
-    align_nat: sys_int_machine_t;      {natural alignment, = 0 for packed record}
-    align: sys_int_machine_t;          {chosen alignment of this data type}
-    size_used: sys_int_adr_t;          {size of used area in machine addresses}
-    size_align: sys_int_adr_t;         {align padded size, size if array element}
+    bits_min: sys_int_machine_t;       {minimum required bits}
+    mem_p: code_memory_t;              {memory this data structure in, if specific}
+    flags: code_typflag_k_t;           {set of individual option flags}
+    typ: code_typid_k_t;               {data type ID, use CODE_TYPID_xxx_K}
     case code_typid_k_t of             {different data for each type}
 code_typid_undef_k: (                  {undefined}
       );

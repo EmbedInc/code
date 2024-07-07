@@ -55,7 +55,7 @@ newcomm:
   {
   *   Create the new comment block.
   }
-  code_alloc_perm (                    {allocate mem for new comment descriptor}
+  code_alloc_global (                  {allocate mem for new comment descriptor}
     code, sizeof(comm_p^), comm_p);
   comm_p^.prev_p := nil;               {init new comment descriptor}
   comm_p^.lnum := lnum;
@@ -84,7 +84,7 @@ newcomm:
   code.comm_block_p := comm_p;         {set new comment block as latest}
 
 add_line:                              {add the new line to the block comm at COMM_P}
-  code_alloc_perm (                    {allocate mem for new comment lines list entry}
+  code_alloc_global (                  {allocate mem for new comment lines list entry}
     code, sizeof(list_p^), list_p);
   list_p^.next_p := nil;               {fill in new list entry}
   list_p^.str_p := str_p;
@@ -123,7 +123,7 @@ procedure code_comm_new_eol (          {add new end of line comment to system}
   val_param;
 
 begin
-  code_alloc_perm (code, sizeof(comm_p^), comm_p); {alloc mem for new descriptor}
+  code_alloc_global (code, sizeof(comm_p^), comm_p); {alloc mem for new descriptor}
 
   comm_p^.prev_p := code.comm_block_p; {fill in new descriptor}
   comm_p^.lnum := lnum;
@@ -182,7 +182,7 @@ begin
 *   Check for an end of line comment for this line.
 }
   comm_p := code.comm_eol_p;           {init to latest EOL comment}
-  while true do begin                  {scan backwards looking for matchin EOL comment}
+  while true do begin                  {scan backwards looking for matching EOL comment}
     if comm_p = nil then exit;         {no EOL comment, go check for block comments}
     if comm_p^.lnum = lnum then begin  {found the EOL comment for this line ?}
       if not comm_p^.eol_used then return; {this comment not already tagged something else ?}

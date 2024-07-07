@@ -20,122 +20,6 @@ define code_memsym_show_all;
 {
 ********************************************************************************
 *
-*   Local function MEMSYM_FIND (CODE, NAME, POS)
-*
-*   Returns the position of the name NAME in the memory symbol table.  The
-*   function returns TRUE iff the name already exists in the symbol table.
-}
-function memsym_find (                 {find position of name in symbol table}
-  in      code: code_t;                {CODE library use state}
-  in      name: univ string_var_arg_t; {name to look up}
-  out     pos: string_hash_pos_t)      {returned position handle}
-  :boolean;                            {name exists, POS at named entry}
-  val_param; internal;
-
-var
-  found: boolean;                      {entry found in symbol table}
-
-begin
-  string_hash_pos_lookup (             {look up name in symbol table}
-    code.memsym,                       {symbol table}
-    name,                              {name to look up in symbol table}
-    pos,                               {return position for the name}
-    found);                            {entry exists}
-
-  memsym_find := found;
-  end;
-{
-********************************************************************************
-*
-*   Local subroutine MEMSYM_GET (POS, DATA_P)
-*
-*   Get the symbol information for the existing symbol at the symbol table
-*   position POS.
-*
-*   WARNING:  This is a low level routine.  POS must be the result of a lookup
-*     that found a symbol.  This is not checked.
-}
-procedure memsym_get (                 {get info of existing symbol table entry}
-  in      pos: string_hash_pos_t;      {symbol table position, must be at symbol}
-  out     data_p: code_memadr_sym_p_t); {returned pointing to data in symbol table}
-  val_param; internal;
-
-var
-  name_p: string_var_p_t;              {pointer to name string in symbol table}
-
-begin
-  string_hash_ent_atpos (pos, name_p, data_p); {get the data at the position}
-  end;
-{
-********************************************************************************
-*
-*   Local subroutine MEMSYM_ADD (POS, DATA_P)
-*
-*   Add the memory symbol table entry according to the previously-determined
-*   position POS.  DATA_P is returned pointing to the data for the new symbol in
-*   the symbol table.
-*
-*   WARNING:  This is a low level routine.  POS must be the result of a lookup
-*     that did not find the name already in the symbol table.  This is not
-*     checked.
-}
-procedure memsym_add (                 {add symbol to table}
-  in out  pos: string_hash_pos_t;      {state from name lookup}
-  out     data_p: code_memadr_sym_p_t); {returned pointer to data in symbol table}
-  val_param; internal;
-
-var
-  name_p: string_var_p_t;              {points to symbol name in symbol table}
-
-begin
-  string_hash_ent_add (                {add the new entry to the symbol table}
-    pos,                               {position and other data about entry to add}
-    name_p,                            {pointer to name in symbol table}
-    data_p);                           {pointer to data for the new symbol}
-
-  data_p^.name_p := name_p;            {save pointer to name in symbol table}
-  fline_cpos_init (data_p^.pos);       {init to no source position known}
-  data_p^.comm_p := nil;               {init to no comments on this symbol}
-  data_p^.symtype := code_symtype_undef_k; {init symbol type to undefined}
-  end;
-{
-********************************************************************************
-*
-*   Local subroutine MEMSYM_NEW (CODE, NAME, MEMSYM_P, STAT)
-*
-*   Create the new memory symbol NAME.  It is an error if name is already used
-*   for a memory, address space, or mem/adr range.  MEMSYM_P is returned
-*   pointing to the data for the new symbol in the symbol table.  On error,
-*   MEMSYM_P is returned NIL, and STAT set to indicate the error.
-}
-procedure memsym_new (                 {create new symbol in mem symbol table}
-  in out  code: code_t;                {CODE library use state}
-  in      name: univ string_var_arg_t; {name of symbol to create}
-  out     memsym_p: code_memadr_sym_p_t; {returned pointer to new symbol data}
-  out     stat: sys_err_t);            {completion status}
-  val_param; internal;
-
-var
-  pos: string_hash_pos_t;              {position within the symbol table}
-  sym_p: code_memadr_sym_p_t;          {points to symbol data in symbol table}
-
-begin
-  sys_error_none (stat);               {init to no error encountered}
-
-  if memsym_find (code, name, pos) then begin {symbol already exists ?}
-    memsym_p := nil;                   {not returning with new memory}
-    memsym_get (pos, sym_p);           {get data on pre-existing symbol}
-    sys_stat_set (code_subsys_k, code_stat_memsym_exist_k, stat);
-    sys_stat_parm_vstr (name, stat);   {add symbol name}
-    fline_stat_lnum_fnam (stat, sym_p^.pos); {add line number and file name}
-    return;
-    end;
-
-  memsym_add (pos, memsym_p);          {create the generic memory symbol}
-  end;
-{
-********************************************************************************
-*
 *   Subroutine CODE_MEMSYM_FIND (CODE, NAME, MEMSYM_P)
 *
 *   Look up NAME in the memories and address spaces symbol table.  MEMSYM_P is
@@ -143,20 +27,13 @@ begin
 *   exists.  If not, MEMSYM_P is returned NIL.
 }
 procedure code_memsym_find (           {find mem, mem region, adr, adr region by name}
-  in      code: code_t;                {CODE library use state}
+  in out  code: code_t;                {CODE library use state}
   in      name: univ string_var_arg_t; {name of mem/adr symbol to find}
-  out     memsym_p: code_memadr_sym_p_t); {returned pointer to symbol, NIL if none}
+  out     memsym_p: code_symbol_p_t);  {returned pointer to symbol, NIL if none}
   val_param;
 
-var
-  name_p: string_var_p_t;              {pointer to name in symbol table}
-
 begin
-  string_hash_ent_lookup (             {look up name in symbol table}
-    code.memsym,                       {symbol table}
-    name,                              {name of symbol to look up}
-    name_p,                            {returned pointer to name in sym table}
-    memsym_p);                         {returned pointer to data in sym table}
+  code_sym_lookup (code, name, code.memsym_p^, memsym_p);
   end;
 {
 ********************************************************************************
@@ -175,17 +52,24 @@ procedure code_mem_new (               {create a new named memory}
   val_param;
 
 var
-  sym_p: code_memadr_sym_p_t;          {pointer to new symbol data in symbol table}
+  sym_p: code_symbol_p_t;              {pointer to new symbol data in symbol table}
 
 begin
-  memsym_new (code, name, sym_p, stat); {create just the bare new symbol}
+  mem_p := nil;                        {init to new mem not created}
+
+  code_sym_new (                       {create the new memory symbol}
+    code,                              {CODE library use state}
+    name,                              {name of symbol to create}
+    code.memsym_p^,                    {symbol table to add symbol to}
+    sym_p,                             {returned pointer to new symbol}
+    stat);
   if sys_error(stat) then return;
 
-  util_mem_grab (                      {alloc mem for memory descriptor}
-    sizeof(mem_p^), code.mem_p^, false, mem_p);
-
   sym_p^.symtype := code_symtype_memory_k; {new symbol is for a memory}
-  sym_p^.memory_p := mem_p;
+  util_mem_grab (                      {alloc mem for memory descriptor}
+    sizeof(mem_p^), code.memsym_p^.mem_p^, false, mem_p);
+  util_mem_grab_err_bomb (mem_p, sizeof(mem_p^));
+  sym_p^.memory_p := mem_p;            {point symbol to new memory descriptor}
 
   mem_p^.sym_p := sym_p;
   mem_p^.region_p := nil;
@@ -204,31 +88,33 @@ begin
 *   MEM_P is returned NIL.
 }
 procedure code_mem_find (              {find memory by name, error if not exist}
-  in      code: code_t;                {CODE library use state}
+  in out  code: code_t;                {CODE library use state}
   in      name: univ string_var_arg_t; {name of memory to find}
   out     mem_p: code_memory_p_t;      {returned pointer to the memory, NIL on err}
   out     stat: sys_err_t);            {completion status}
   val_param;
 
 var
-  pos: string_hash_pos_t;              {position within symbol table}
-  sym_p: code_memadr_sym_p_t;          {pointer to symbol data in symbol table}
+  sym_p: code_symbol_p_t;              {pointer to the memory symbol}
 
 begin
   sys_error_none (stat);               {init to no error}
+  mem_p := nil;                        {init to memory not found}
 
-  if not memsym_find (code, name, pos) then begin {try to find the symbol}
+  code_sym_lookup (                    {look up name in memories symbol table}
+    code,                              {CODE library use state}
+    name,                              {name of symbol to look up}
+    code.memsym_p^,                    {symbol table to look in}
+    sym_p);                            {returned pointer to symbol, NIL = not found}
+  if sym_p = nil then begin            {no such memory symbol ?}
     sys_stat_set (code_subsys_k, code_stat_nomem_k, stat);
     sys_stat_parm_vstr (name, stat);
-    mem_p := nil;
     return;
     end;
 
-  memsym_get (pos, sym_p);             {get pointer to the symbol data}
-  if sym_p^.symtype <> code_symtype_memory_k then begin {not a memory ?}
+  if sym_p^.symtype <> code_symtype_memory_k then begin {symbol is not a memory ?}
     sys_stat_set (code_subsys_k, code_stat_notmem_k, stat);
     sys_stat_parm_vstr (name, stat);
-    mem_p := nil;
     return;
     end;
 
@@ -252,18 +138,25 @@ procedure code_memreg_new (            {create a new named memory region}
   val_param;
 
 var
-  sym_p: code_memadr_sym_p_t;          {pointer to new symbol data in symbol table}
-  mem_p: code_memory_p_t;              {pointer to parent memory}
+  sym_p: code_symbol_p_t;              {pointer to new symbol data in symbol table}
+  mem_p: code_memory_p_t;              {to memory this region is in}
 
 begin
-  memsym_new (code, name, sym_p, stat); {create just the bare new symbol}
+  memreg_p := nil;                     {init to no new region created}
+
+  code_sym_new (                       {create the new memory symbol}
+    code,                              {CODE library use state}
+    name,                              {name of symbol to create}
+    code.memsym_p^,                    {symbol table to add symbol to}
+    sym_p,                             {returned pointer to new symbol}
+    stat);
   if sys_error(stat) then return;
 
-  util_mem_grab (                      {alloc mem for memory region descriptor}
-    sizeof(memreg_p^), code.mem_p^, false, memreg_p);
-
   sym_p^.symtype := code_symtype_memreg_k; {new symbol is for a memory region}
-  sym_p^.memreg_p := memreg_p;
+  util_mem_grab (                      {alloc mem for memregion descriptor}
+    sizeof(memreg_p^), code.memsym_p^.mem_p^, false, memreg_p);
+  util_mem_grab_err_bomb (memreg_p, sizeof(memreg_p^));
+  sym_p^.memreg_p := memreg_p;         {point symbol to new memory descriptor}
 
   memreg_p^.next_p := nil;             {init the memory region descriptor}
   memreg_p^.sym_p := sym_p;
@@ -292,31 +185,34 @@ begin
 *   case of error, MEMREG_P is returned NIL.
 }
 procedure code_memreg_find (           {find memory region by name, error if not exist}
-  in      code: code_t;                {CODE library use state}
+  in out  code: code_t;                {CODE library use state}
   in      name: univ string_var_arg_t; {name of memory region to find}
   out     memreg_p: code_memregion_p_t; {returned pointer to the mem region, NIL on err}
   out     stat: sys_err_t);            {completion status}
   val_param;
 
 var
-  pos: string_hash_pos_t;              {position within symbol table}
-  sym_p: code_memadr_sym_p_t;          {pointer to symbol data in symbol table}
+  sym_p: code_symbol_p_t;              {pointer to symbol data in symbol table}
 
 begin
   sys_error_none (stat);               {init to no error}
+  memreg_p := nil;                     {init to not returning with memory region}
 
-  if not memsym_find (code, name, pos) then begin {try to find the symbol}
+  code_sym_lookup (                    {look up name in memories symbol table}
+    code,                              {CODE library use state}
+    name,                              {name of symbol to look up}
+    code.memsym_p^,                    {symbol table to look in}
+    sym_p);                            {returned pointer to symbol, NIL = not found}
+  if sym_p = nil then begin
     sys_stat_set (code_subsys_k, code_stat_nomemreg_k, stat);
     sys_stat_parm_vstr (name, stat);
     memreg_p := nil;
     return;
     end;
 
-  memsym_get (pos, sym_p);             {get pointer to the symbol data}
-  if sym_p^.symtype <> code_symtype_memreg_k then begin {not a memory region ?}
+  if sym_p^.symtype <> code_symtype_memreg_k then begin {symbol not a mem region ?}
     sys_stat_set (code_subsys_k, code_stat_notmemreg_k, stat);
     sys_stat_parm_vstr (name, stat);
-    memreg_p := nil;
     return;
     end;
 
@@ -339,17 +235,24 @@ procedure code_adrsp_new (             {create a new named address space}
   val_param;
 
 var
-  sym_p: code_memadr_sym_p_t;          {pointer to new symbol data in symbol table}
+  sym_p: code_symbol_p_t;              {pointer to new symbol}
 
 begin
-  memsym_new (code, name, sym_p, stat); {create just the bare new symbol}
+  adrsp_p := nil;                      {init to address space not created}
+
+  code_sym_new (                       {create the new memory symbol}
+    code,                              {CODE library use state}
+    name,                              {name of symbol to create}
+    code.memsym_p^,                    {symbol table to add symbol to}
+    sym_p,                             {returned pointer to new symbol}
+    stat);
   if sys_error(stat) then return;
 
-  util_mem_grab (                      {alloc mem for address space descriptor}
-    sizeof(adrsp_p^), code.mem_p^, false, adrsp_p);
-
-  sym_p^.symtype := code_symtype_adrsp_k; {new symbol is for an address space}
-  sym_p^.adrsp_p := adrsp_p;
+  sym_p^.symtype := code_symtype_adrsp_k; {new symbol is address space}
+  util_mem_grab (                      {alloc mem for adr space descriptor}
+    sizeof(adrsp_p^), code.memsym_p^.mem_p^, false, adrsp_p);
+  util_mem_grab_err_bomb (adrsp_p, sizeof(adrsp_p^));
+  sym_p^.adrsp_p := adrsp_p;           {point symbol to new adr space descriptor}
 
   adrsp_p^.sym_p := sym_p;
   adrsp_p^.region_p := nil;
@@ -367,40 +270,42 @@ begin
 *   case of error, ADRSP_P is returned NIL.
 }
 procedure code_adrsp_find (            {find adr space by name, error if not exist}
-  in      code: code_t;                {CODE library use state}
+  in out  code: code_t;                {CODE library use state}
   in      name: univ string_var_arg_t; {name of adr space to find}
   out     adrsp_p: code_adrspace_p_t;  {returned pointer to the adr space, NIL on err}
   out     stat: sys_err_t);            {completion status}
   val_param;
 
 var
-  pos: string_hash_pos_t;              {position within symbol table}
-  sym_p: code_memadr_sym_p_t;          {pointer to symbol data in symbol table}
+  sym_p: code_symbol_p_t;              {pointer to address space symbol}
 
 begin
   sys_error_none (stat);               {init to no error}
+  adrsp_p := nil;                      {init to adress space not found}
 
-  if not memsym_find (code, name, pos) then begin {try to find the symbol}
+  code_sym_lookup (                    {look up name in memories symbol table}
+    code,                              {CODE library use state}
+    name,                              {name of symbol to look up}
+    code.memsym_p^,                    {symbol table to look in}
+    sym_p);                            {returned pointer to symbol, NIL = not found}
+  if sym_p = nil then begin            {no such memory symbol ?}
     sys_stat_set (code_subsys_k, code_stat_noadrsp_k, stat);
     sys_stat_parm_vstr (name, stat);
-    adrsp_p := nil;
     return;
     end;
 
-  memsym_get (pos, sym_p);             {get pointer to the symbol data}
-  if sym_p^.symtype <> code_symtype_adrsp_k then begin {not an address space ?}
+  if sym_p^.symtype <> code_symtype_adrsp_k then begin {symbol is not adr space ?}
     sys_stat_set (code_subsys_k, code_stat_notadrsp_k, stat);
     sys_stat_parm_vstr (name, stat);
-    adrsp_p := nil;
     return;
     end;
 
-  adrsp_p := sym_p^.adrsp_p;           {return pointer to the memory region}
+  adrsp_p := sym_p^.adrsp_p            {return pointer to the address space}
   end;
 {
 ********************************************************************************
 *
-*   Subroutine CODE_ADRREG_NEW (CODE, NAME, ADRREG_P, STAT)
+*   Subroutine CODE_ADRREG_NEW (CODE, NAME, ADRNAME, ADRREG_P, STAT)
 *
 *   Create a new address region.  It is an error if the name is already in use
 *   as a memory, address, or mem/adr region.  ADRREG_P is returned pointing to
@@ -416,15 +321,23 @@ procedure code_adrreg_new (            {create a new named address region}
   val_param;
 
 var
-  sym_p: code_memadr_sym_p_t;          {pointer to new symbol data in symbol table}
+  sym_p: code_symbol_p_t;              {pointer to new symbol data in symbol table}
   adr_p: code_adrspace_p_t;            {pointer to parent address space}
 
 begin
-  memsym_new (code, name, sym_p, stat); {create just the bare new symbol}
+  adrreg_p := nil;                     {init to new adr region not created}
+
+  code_sym_new (                       {create the new memory symbol}
+    code,                              {CODE library use state}
+    name,                              {name of symbol to create}
+    code.memsym_p^,                    {symbol table to add symbol to}
+    sym_p,                             {returned pointer to new symbol}
+    stat);
   if sys_error(stat) then return;
 
   util_mem_grab (                      {alloc mem for address space descriptor}
-    sizeof(adrreg_p^), code.mem_p^, false, adrreg_p);
+    sizeof(adrreg_p^), code.memsym_p^.mem_p^, false, adrreg_p);
+  util_mem_grab_err_bomb (adrreg_p, sizeof(adrreg_p^));
 
   sym_p^.symtype := code_symtype_adrreg_k; {new symbol is for a address region}
   sym_p^.adrreg_p := adrreg_p;
@@ -457,31 +370,33 @@ begin
 *   case of error, ADRREG_P is returned NIL.
 }
 procedure code_adrreg_find (           {find adr region by name, error if not exist}
-  in      code: code_t;                {CODE library use state}
+  in out  code: code_t;                {CODE library use state}
   in      name: univ string_var_arg_t; {name of adr region to find}
   out     adrreg_p: code_adrregion_p_t; {returned pointer to the adr region, NIL on err}
   out     stat: sys_err_t);            {completion status}
   val_param;
 
 var
-  pos: string_hash_pos_t;              {position within symbol table}
-  sym_p: code_memadr_sym_p_t;          {pointer to symbol data in symbol table}
+  sym_p: code_symbol_p_t;              {pointer to symbol data in symbol table}
 
 begin
   sys_error_none (stat);               {init to no error}
+  adrreg_p := nil;                     {init to not returning with memory region}
 
-  if not memsym_find (code, name, pos) then begin {try to find the symbol}
+  code_sym_lookup (                    {look up name in memories symbol table}
+    code,                              {CODE library use state}
+    name,                              {name of symbol to look up}
+    code.memsym_p^,                    {symbol table to look in}
+    sym_p);                            {returned pointer to symbol, NIL = not found}
+  if sym_p = nil then begin
     sys_stat_set (code_subsys_k, code_stat_noadrreg_k, stat);
     sys_stat_parm_vstr (name, stat);
-    adrreg_p := nil;
     return;
     end;
 
-  memsym_get (pos, sym_p);             {get pointer to the symbol data}
-  if sym_p^.symtype <> code_symtype_adrreg_k then begin {not an address space ?}
+  if sym_p^.symtype <> code_symtype_adrreg_k then begin {symbol not a mem region ?}
     sys_stat_set (code_subsys_k, code_stat_notadrreg_k, stat);
     sys_stat_parm_vstr (name, stat);
-    adrreg_p := nil;
     return;
     end;
 
@@ -490,20 +405,20 @@ begin
 {
 ********************************************************************************
 *
-*   Function MEMREG_LIST_ADD (CODE, LIST_P, MEMREG)
+*   Local function MEMREG_LIST_ADD (CODE, LIST_P, MEMREG)
 *
 *   Added the memory region MEMREG to the list of memory regions pointed to by
 *   LIST_P.  LIST_P may be NIL initially.  It is always returned pointing to the
 *   updated complete list.  The function returns TRUE if a new entry was added
 *   to the list, and FALSE if MEMREG was already in the list.  In the latter
-*   nothing else is done.
+*   case, nothing else is done.
 }
 function memreg_list_add (             {add entry to memory regions list}
   in out  code: code_t;                {CODE library use state}
   in out  list_p: code_memreg_ent_p_t; {pointer to list, may be NIL, updated}
   in var  memreg: code_memregion_t)    {memory region to add to the list}
   :boolean;                            {added, not duplicate}
-  val_param;
+  val_param; internal;
 
 var
   ent_p: code_memreg_ent_p_t;          {pointer to list entry}
@@ -528,7 +443,7 @@ begin
 *   entry unless the list is empty.  An empty list is indicated by LIST_P being
 *   NIL.
 }
-  code_alloc_perm (code, sizeof(ent_p), ent_p); {create new list entry}
+  code_alloc_global (code, sizeof(ent_p), ent_p); {create new list entry}
   ent_p^.next_p := nil;                {fill in the new list entry}
   ent_p^.region_p := addr(memreg);
 
@@ -546,7 +461,7 @@ begin
 *
 *   Subroutine CODE_ADRREG_MEMREG_ADD (CODE, ADRREG, MEMREG, STAT)
 *
-*   Add a memory region to and address region descriptor.  ADRREG is the address
+*   Add a memory region to an address region descriptor.  ADRREG is the address
 *   region descriptor being added to.  MEMREG is an additional memory region
 *   that the address region can map to.
 }
@@ -613,7 +528,7 @@ begin
 *   Show the details of the memory/address symbol SYM.
 }
 procedure code_memsym_show (           {show details of one mem/adr symbol}
-  in      sym: code_memadr_sym_t;      {mem/adr symbol to show data of}
+  in      sym: code_symbol_t;          {mem/adr symbol to show data of}
   in      indent: sys_int_machine_t);  {number of spaces to indent all output}
   val_param;
 
@@ -739,10 +654,11 @@ var
   pos: string_hash_pos_t;              {position into symbol table}
   found: boolean;                      {symbol table entry exists}
   name_p: string_var_p_t;              {pointer to symbol name in symbol table}
-  sym_p: code_memadr_sym_p_t;          {pointer to symbol data in symbol table}
+  sym_p: code_symbol_p_t;              {pointer to symbol data in symbol table}
 
 begin
-  string_hash_pos_first (code.memsym, pos, found); {to first symbol table entry}
+  string_hash_pos_first (              {to first symbol table entry}
+    code.memsym_p^.hash, pos, found);
   while found do begin                 {loop over all symbols in symbol table}
     string_hash_ent_atpos (pos, name_p, sym_p); {get data for this table entry}
     code_memsym_show (sym_p^, indent); {show this symbol}

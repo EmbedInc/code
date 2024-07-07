@@ -31,3 +31,6 @@ msg err9
 msg err10
   lan english -def
     Memory region "%p2s" was previously mapped to from address region "%p1s".
+msg err11
+  lan english -def
+    Symbol "%p1s" already exists, defined on line %p2i of file "%p3s".

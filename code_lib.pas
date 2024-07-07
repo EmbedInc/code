@@ -27,10 +27,8 @@ procedure code_lib_def (               {set library creation parameters to defau
 
 begin
   cfg.mem_p := addr(util_top_mem_context); {parent memory context}
-  cfg.n_membuck := 64;                 {number of hash buckets in mem/adr sym table}
-  cfg.memnam_len := 32;                {max length of mem/adr symbols}
-  cfg.symlen_max := 32;                {max supported length of other symbols}
-  cfg.n_symbuck := 128;                {number of hash buckets in other sym tables}
+  cfg.symlen_max := 32;                {max supported length of symbol names}
+  cfg.n_symbuck := 128;                {number of hash buckets in symbol tables}
   end;
 {
 ********************************************************************************
@@ -53,6 +51,7 @@ procedure code_lib_new (               {create new use of the CODE library}
 
 var
   mem_p: util_mem_context_p_t;         {pointer to new private memory context}
+  sym_p: code_symbol_p_t;              {scratch pointer to symbol data}
 
 begin
 {
@@ -76,19 +75,29 @@ begin
 {
 *   Fill in remaining fields.
 }
-  string_hash_create (                 {create symbol table for memories and adr spaces}
-    code_p^.memsym,                    {symbol table to initialize}
-    inicfg.n_membuck,                  {number of hash table buckets}
-    inicfg.memnam_len,                 {max length of mem or adr space names}
-    sizeof(code_memadr_sym_t),         {size of data for each table entry}
-    [ string_hashcre_memdir_k,         {use parent memory context directly}
-      string_hashcre_nodel_k],         {will not deallocate individual entries}
-    code_p^.mem_p^);                   {parent memory context to use}
-
-  code_p^.symlen_max := inicfg.symlen_max;
-  code_p^.n_symbuck := inicfg.n_symbuck;
+  code_p^.config.symlen_max := inicfg.symlen_max;
+  code_p^.config.n_symbuck := inicfg.n_symbuck;
+  fline_cpos_init (code_p^.parse.pos);
+  code_p^.parse.level := 0;
+  code_p^.parse.nextlevel := 0;
   code_p^.comm_block_p := nil;
   code_p^.comm_eol_p := nil;
+  code_symtab_init (                   {initialize root symbol table}
+    code_p^, code_p^.mem_p^, code_p^.sym_root);
+  code_p^.scope_p := addr(code_p^.sym_root); {init to at root scope}
+{
+*   Create the top level symbol MEM, and then create the memories symbol table
+*   subordinate to it.
+}
+  code_sym_new_currscope (             {create top level MEM symbol}
+    code_p^,                           {CODE library use state}
+    string_v('MEM'),                   {symbol name}
+    sym_p,                             {returned pointer to the new symbol}
+    stat);
+  if sys_error(stat) then return;
+
+  code_symtab_new (                    {create memories symbol table}
+    code_p^, sym_p^, code_p^.memsym_p);
   end;
 {
 ********************************************************************************

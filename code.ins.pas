@@ -19,6 +19,7 @@ const
   code_stat_noadrreg_k = 8;            {no such named address region}
   code_stat_notadrreg_k = 9;           {name is not for a address region}
   code_stat_mreg_inlist_k = 10;        {memory region is already in the list}
+  code_stat_sym_exist_k = 11;          {symbol already exists}
 
 type
   code_adrregion_p_t = ^code_adrregion_t;
@@ -34,7 +35,6 @@ type
   code_exp_p_t = ^code_exp_t;
   code_explist_p_t = ^code_explist_t;
   code_iter_p_t = ^code_iter_t;
-  code_memadr_sym_p_t = ^code_memadr_sym_t;
   code_memory_p_t = ^code_memory_t;
   code_memreg_ent_p_t = ^code_memreg_ent_t;
   code_memregion_p_t = ^code_memregion_t;
@@ -50,6 +50,7 @@ type
   code_symref_p_t = ^code_symref_t;
   code_val_set_p_t = ^code_val_set_t;
   code_value_p_t = ^code_value_t;
+  code_symtab_p_t = ^code_symtab_t;
 
   code_memaccs_k_t = (                 {types of access to a memory or address space}
     code_memaccs_rd_k,                 {read}
@@ -63,6 +64,7 @@ type
 
   code_symtype_k_t = (                 {all the different symbol types}
     code_symtype_undef_k,              {symbol is known, but not defined yet}
+    code_symtype_scope_k,              {sub-scope within parent scope}
     code_symtype_memory_k,             {memory}
     code_symtype_memreg_k,             {memory region}
     code_symtype_adrsp_k,              {address space}
@@ -175,7 +177,8 @@ type
   code_scopeflag_t = set of code_scopeflag_k_t;
 
   code_iterid_k_t = (                  {ID for loop iteration type}
-    code_iterid_cnt_k);                {counted loop}
+    code_iterid_cnt_k,                 {counted loop}
+    code_iterid_while_k);              {loop while condition true}
 
   code_incdir_k_t = (                  {loop increment direction flag}
     code_incdir_up_k,                  {increment is positive}
@@ -294,11 +297,16 @@ code_commty_eol_k: (                   {end of line comment}
       );
     end;
 
+  code_outcfg_t = record               {configuration specific to the output implementation}
+    int_bits: sys_int_machine_t;       {default integer size in bits, 0 undefined}
+    int_pos: fline_cpos_t;             {source code postion where defined}
+    end;
+
   {   Memories are where data is stored.  Address spaces are how the processor
   *   accesses that data.
   }
   code_memory_t = record               {one physical memory connected to the processor}
-    sym_p: code_memadr_sym_p_t;        {points to symbol data in symbol table}
+    sym_p: code_symbol_p_t;            {points to symbol data in symbol table}
     region_p: code_memregion_p_t;      {points to list of regions within this memory}
     bitsadr: sys_int_machine_t;        {number of bits in address}
     bitsdat: sys_int_machine_t;        {number of bits per addressable word}
@@ -308,7 +316,7 @@ code_commty_eol_k: (                   {end of line comment}
 
   code_memregion_t = record            {region within a memory}
     next_p: code_memregion_p_t;        {to next region in the same memory}
-    sym_p: code_memadr_sym_p_t;        {points to symbol data in symbol table}
+    sym_p: code_symbol_p_t;            {points to symbol data in symbol table}
     mem_p: code_memory_p_t;            {memory this region is within}
     adrst: sys_int_conv32_t;           {start address of this region within the memory}
     adren: sys_int_conv32_t;           {end address of this region within the memory}
@@ -321,7 +329,7 @@ code_commty_eol_k: (                   {end of line comment}
     end;
 
   code_adrspace_t = record             {address space visible to the processor}
-    sym_p: code_memadr_sym_p_t;        {points to symbol data in symbol table}
+    sym_p: code_symbol_p_t;            {points to symbol data in symbol table}
     region_p: code_adrregion_p_t;      {points to list of regions within this adr space}
     bitsadr: sys_int_machine_t;        {number of bits in address}
     bitsdat: sys_int_machine_t;        {number of bits per addressable word}
@@ -330,32 +338,12 @@ code_commty_eol_k: (                   {end of line comment}
 
   code_adrregion_t = record            {region of address space with consistant attributes}
     next_p: code_adrregion_p_t;        {to next region within same address space}
-    sym_p: code_memadr_sym_p_t;        {points to symbol data in symbol table}
+    sym_p: code_symbol_p_t;            {points to symbol data in symbol table}
     space_p: code_adrspace_p_t;        {address space this region is within}
     adrst: sys_int_conv32_t;           {start address of this region within adr space}
     adren: sys_int_conv32_t;           {end address of this region within adr space}
     memreg_p: code_memreg_ent_p_t;     {list of mem regions mapped to this adr region}
     accs: code_memaccs_t;              {types of access to this memory}
-    end;
-
-  code_memadr_sym_t = record           {memory and address regions symbol table data}
-    name_p: string_var_p_t;            {points to symbol name in symbol table}
-    pos: fline_cpos_t;                 {position of definition in source code}
-    comm_p: code_comm_p_t;             {related comments}
-    symtype: code_symtype_k_t;         {ID for the symbol type}
-    case code_symtype_k_t of
-code_symtype_memory_k: (               {memory}
-      memory_p: code_memory_p_t;       {points to memory descriptor}
-      );
-code_symtype_memreg_k: (               {memory region}
-      memreg_p: code_memregion_p_t;    {points to memory region descriptor}
-      );
-code_symtype_adrsp_k: (                {address space}
-      adrsp_p: code_adrspace_p_t;      {points to address space descriptor}
-      );
-code_symtype_adrreg_k: (               {address region}
-      adrreg_p: code_adrregion_p_t;    {points to address region descriptor}
-      );
     end;
 
   code_val_set_t =                     {one bit for each possible element in a set}
@@ -393,18 +381,16 @@ code_typid_pnt_k: (                    {data type is a pointer}
       );
     end;
 
-  code_symtab_t = record               {all the symbol tables at a scope level}
-    vcon: string_hash_handle_t;        {variables, constants, enum names}
-    dtype: string_hash_handle_t;       {data types}
-    rout: string_hash_handle_t;        {routines}
-    label: string_hash_handle_t;       {labels}
-    end;
+  code_symtabty_k_t = (                {IDs for each symbol table type}
+    code_symtabty_scope_k,             {subordinate scopes}
+    code_symtabty_vcon_k,              {variables and constants}
+    code_symtabty_dtype_k,             {data types}
+    code_symtabty_rout_k,              {routines}
+    code_symtabty_label_k);            {labels}
+  code_symtabty_t = set of code_symtabty_k_t; {list of possible subordinate symbol tables}
 
   code_scope_t = record                {data about a scope or namespace}
-    parent_p: code_scope_p_t;          {points to parent scope block}
-    comm_p: code_comm_p_t;             {related comments}
     symbol_p: code_symbol_p_t;         {points to top symbol for this scope}
-    sym: code_symtab_t;                {symbol tables}
     flags: code_scopeflag_t;           {set of individual flags}
     end;
 
@@ -436,15 +422,29 @@ code_typid_pnt_k: (                    {data type is a pointer}
     end;
 
   code_symbol_t = record               {all the data about one symbol}
-    name_p: string_var_p_t;            {points to name as appeared in source code}
-    comm_p: code_comm_p_t;             {related comments}
-    scope_p: code_scope_p_t;           {points to scope this symbol defined in}
+    name_p: string_var_p_t;            {to symbol name string}
     pos: fline_cpos_t;                 {position of definition in source code}
+    comm_p: code_comm_p_t;             {related comments}
+    symtab_p: code_symtab_p_t;         {to symbol table this symbol is in}
     flags: code_symflag_t;             {set of individual flags}
     app_p: univ_ptr;                   {arbitrary pointer to app-specific data}
     symtype: code_symtype_k_t;         {symbol type, use CODE_SYMTYPE_xxx_K}
     case code_symtype_k_t of           {different data for each symbol type}
 code_symtype_undef_k: (                {symbol not defined yet, only name known}
+      );
+code_symtype_scope_k: (                {symbol is sub-scope within parent scope}
+      );
+code_symtype_memory_k: (               {memory}
+      memory_p: code_memory_p_t;       {points to memory descriptor}
+      );
+code_symtype_memreg_k: (               {memory region}
+      memreg_p: code_memregion_p_t;    {points to memory region descriptor}
+      );
+code_symtype_adrsp_k: (                {address space}
+      adrsp_p: code_adrspace_p_t;      {points to address space descriptor}
+      );
+code_symtype_adrreg_k: (               {address region}
+      adrreg_p: code_adrregion_p_t;    {points to address region descriptor}
       );
 code_symtype_const_k: (                {symbol is a constant}
       const_exp_p: code_exp_p_t;       {points to expression defining constant value}
@@ -704,6 +704,8 @@ code_iterid_cnt_k: (                   {counted loop}
       cnt_exp_inc_p: code_exp_p_t;     {points to increment value expression}
       cnt_inc_dir: code_incdir_k_t;    {up/down/unknown increment direction}
       );
+code_iterid_while_k: (                 {loop while condition true}
+      );
     end;
 
   code_ele_t = record                  {one code element}
@@ -783,26 +785,43 @@ code_ele_write_eol_k: (                {write end of line to standard output}
 
   code_inicfg_t = record               {configuration for a new library use}
     mem_p: util_mem_context_p_t;       {points to parent mem context}
-    n_membuck: sys_int_machine_t;      {num buckets in mem and adr space sym table, 2^N}
-    memnam_len: sys_int_machine_t;     {max length of memory and address space names}
-    symlen_max: sys_int_machine_t;     {max supported length of other symbols}
-    n_symbuck: sys_int_machine_t;      {number of hash buckets in other sym tables}
+    symlen_max: sys_int_machine_t;     {max supported length of symbol names}
+    n_symbuck: sys_int_machine_t;      {number of hash buckets in symbol tables}
+    end;
+
+  code_config_t = record               {code lib configuration settings}
+    symlen_max: sys_int_machine_t;     {max supported symbol length}
+    n_symbuck: sys_int_machine_t;      {N hash buckets in symbol tables, power of 2}
+    end;
+
+  code_parse_t = record                {parsing state that needs to be visible to CODE lib}
+    pos: fline_cpos_t;                 {current parsing position}
+    level: sys_int_machine_t;          {current block nesting level, 0 = top}
+    nextlevel: sys_int_machine_t;      {lev of next statement}
+    end;
+
+  code_symtab_t = record               {data for one symbol table}
+    mem_p: util_mem_context_p_t;       {mem context for all subordinate dynamic memory}
+    parent_p: code_symbol_p_t;         {to parent symbol in name hierarchy}
+    hash: string_hash_handle_t;        {handle to hash table symbols stored in}
     end;
 
   code_p_t = ^code_t;
   code_t = record                      {state for one use of this library}
     mem_p: util_mem_context_p_t;       {context for all dyn mem of this CODE lib use}
-    memsym: string_hash_handle_t;      {symbol table for memories and address spaces}
-    symlen_max: sys_int_machine_t;     {max supported length of other symbols}
-    n_symbuck: sys_int_machine_t;      {number of hash buckets in other sym tables}
+    config: code_config_t;             {configuration parameters for this CODE lib instance}
+    parse: code_parse_t;               {parsing state visible to CODE lib}
     comm_block_p: code_comm_p_t;       {to current hiearchy of block comments}
     comm_eol_p: code_comm_p_t;         {to latest end of line comment}
+    sym_root: code_symtab_t;           {root scope symbol table}
+    scope_p: code_symtab_p_t;          {to symbol table for new symbols in curr scope}
+    memsym_p: code_symtab_p_t;         {saved pointer to memory and adr space symbol table}
     end;
 {
 *   Functions and subroutines.
 }
 procedure code_adrreg_find (           {find adr region by name, error if not exist}
-  in      code: code_t;                {CODE library use state}
+  in out  code: code_t;                {CODE library use state}
   in      name: univ string_var_arg_t; {name of adr region to find}
   out     adrreg_p: code_adrregion_p_t; {returned pointer to the adr region, NIL on err}
   out     stat: sys_err_t);            {completion status}
@@ -824,7 +843,7 @@ procedure code_adrreg_memreg_add (     {add mapped-to mem region to address regi
   val_param; extern;
 
 procedure code_adrsp_find (            {find adr space by name, error if not exist}
-  in      code: code_t;                {CODE library use state}
+  in out  code: code_t;                {CODE library use state}
   in      name: univ string_var_arg_t; {name of adr space to find}
   out     adrsp_p: code_adrspace_p_t;  {returned pointer to the adr space, NIL on err}
   out     stat: sys_err_t);            {completion status}
@@ -837,7 +856,7 @@ procedure code_adrsp_new (             {create a new named address space}
   out     stat: sys_err_t);            {completion status}
   val_param; extern;
 
-procedure code_alloc_perm (            {alloc mem under CODE context, can't individually dealloc}
+procedure code_alloc_global (          {alloc mem under CODE context, can't individually dealloc}
   in out  code: code_t;                {CODE library use state}
   in      size: sys_int_adr_t;         {amount of memory to allocate, bytes}
   out     new_p: univ_ptr);            {returned pointer to the new memory}
@@ -883,6 +902,11 @@ procedure code_comm_show1 (            {show contents of single comment descript
   in      indent: sys_int_machine_t);  {number of spaces to indent all output}
   val_param; extern;
 
+procedure code_errset_sym_exist (      {fill in STAT for symbol already exists}
+  in      pos: string_hash_pos_t;      {symbol table position for existing symbol}
+  out     stat: sys_err_t);            {filled in with appropriate error status}
+  val_param; extern;
+
 procedure code_lib_def (               {set library creation parameters to default}
   out     cfg: code_inicfg_t);         {parameters for creating a library use}
   val_param; extern;
@@ -898,7 +922,7 @@ procedure code_lib_new (               {create new use of the CODE library}
   val_param; extern;
 
 procedure code_mem_find (              {find memory by name, error if not exist}
-  in      code: code_t;                {CODE library use state}
+  in out  code: code_t;                {CODE library use state}
   in      name: univ string_var_arg_t; {name of memory to find}
   out     mem_p: code_memory_p_t;      {returned pointer to the memory, NIL on err}
   out     stat: sys_err_t);            {completion status}
@@ -912,17 +936,10 @@ procedure code_mem_new (               {create a new named memory}
   val_param; extern;
 
 procedure code_memreg_find (           {find memory region by name, error if not exist}
-  in      code: code_t;                {CODE library use state}
+  in out  code: code_t;                {CODE library use state}
   in      name: univ string_var_arg_t; {name of memory region to find}
   out     memreg_p: code_memregion_p_t; {returned pointer to the mem region, NIL on err}
   out     stat: sys_err_t);            {completion status}
-  val_param; extern;
-
-function memreg_list_add (             {add entry to memory regions list}
-  in out  code: code_t;                {CODE library use state}
-  in out  list_p: code_memreg_ent_p_t; {pointer to list, may be NIL, updated}
-  in var  memreg: code_memregion_t)    {memory region to add to the list}
-  :boolean;                            {added, not duplicate}
   val_param; extern;
 
 procedure code_memreg_new (            {create a new named memory region}
@@ -934,17 +951,60 @@ procedure code_memreg_new (            {create a new named memory region}
   val_param; extern;
 
 procedure code_memsym_find (           {find mem, mem region, adr, adr region by name}
-  in      code: code_t;                {CODE library use state}
+  in out  code: code_t;                {CODE library use state}
   in      name: univ string_var_arg_t; {name of mem/adr symbol to find}
-  out     memsym_p: code_memadr_sym_p_t); {returned pointer to symbol, NIL if none}
+  out     memsym_p: code_symbol_p_t);  {returned pointer to symbol, NIL if none}
   val_param; extern;
 
 procedure code_memsym_show (           {show details of one mem/adr symbol}
-  in      sym: code_memadr_sym_t;      {mem/adr symbol to show data of}
+  in      sym: code_symbol_t;          {mem/adr symbol to show data of}
   in      indent: sys_int_machine_t);  {number of spaces to indent all output}
   val_param; extern;
 
 procedure code_memsym_show_all (       {show details of all mem/adr symbols}
   in out  code: code_t;                {CODE library use state}
   in      indent: sys_int_machine_t);  {number of spaces to indent all output}
+  val_param; extern;
+
+procedure code_scope_new (             {create new symbol scope, make it current}
+  in out  code: code_t;                {CODE library use state}
+  in out  parsym: code_symbol_t);      {parent symbol new scope will be under}
+  val_param; extern;
+
+procedure code_scope_pop (             {pop back to parent scope}
+  in out  code: code_t);               {CODE library use state}
+  val_param; extern;
+
+procedure code_sym_lookup (            {look up symbol name in a symbol table}
+  in out  code: code_t;                {CODE library use state}
+  in      name: univ string_var_arg_t; {name of symbol to look up}
+  in      symtab: code_symtab_t;       {symbol table to look up name in}
+  out     sym_p: code_symbol_p_t);     {returned pointer to symbol, NIL if not found}
+  val_param; extern;
+
+procedure code_sym_new (               {create new symbol, err if exists}
+  in out  code: code_t;                {CODE library use state}
+  in      name: univ string_var_arg_t; {name of symbol to create}
+  in out  table: code_symtab_t;        {symbol table to add the symbol to}
+  out     sym_p: code_symbol_p_t;      {returned pointer to new symbol}
+  out     stat: sys_err_t);            {completion status}
+  val_param; extern;
+
+procedure code_sym_new_currscope (     {create new symbol in curr scope, err if exists}
+  in out  code: code_t;                {CODE library use state}
+  in      name: univ string_var_arg_t; {name of symbol to create}
+  out     sym_p: code_symbol_p_t;      {returned pointer to new symbol}
+  out     stat: sys_err_t);            {completion status}
+  val_param; extern;
+
+procedure code_symtab_init (           {initialize symbol table descriptor}
+  in out  code: code_t;                {CODE library use state}
+  in out  mem: util_mem_context_t;     {parent mem context, will create subordinate}
+  out     symtab: code_symtab_t);      {symbol table to initialize}
+  val_param; extern;
+
+procedure code_symtab_new (            {create new subordinate symbol table}
+  in out  code: code_t;                {CODE library use state}
+  in out  parsym: code_symbol_t;       {parent symbol new table subordinate to}
+  out     symtab_p: code_symtab_p_t);  {pointer to new symbol table}
   val_param; extern;

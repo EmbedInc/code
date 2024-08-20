@@ -53,6 +53,9 @@ var
   mem_p: util_mem_context_p_t;         {pointer to new private memory context}
   sym_p: code_symbol_p_t;              {scratch pointer to symbol data}
 
+label
+  abort1;
+
 begin
 {
 *   Create the basic descriptor and its private memory context.
@@ -69,7 +72,7 @@ begin
     false,                             {will not individually deallocate this}
     code_p);                           {returned pointer to the new memory}
   if util_mem_grab_err (code_p, sizeof(code_p^), stat) {error getting the memory ?}
-    then return;
+    then goto abort1;
 
   code_p^.mem_p := mem_p;              {save pointer to mem context for this lib use}
 {
@@ -86,7 +89,7 @@ begin
     code_p^, code_p^.mem_p^, code_p^.sym_root);
   code_p^.scope_p := addr(code_p^.sym_root); {init to at root scope}
 {
-*   Create the top level symbol MEM, and then create the memories symbol table
+*   Create the top level scope MEM, and then create the memories symbol table
 *   subordinate to it.
 }
   code_sym_new_currscope (             {create top level MEM symbol}
@@ -94,10 +97,17 @@ begin
     string_v('MEM'),                   {symbol name}
     sym_p,                             {returned pointer to the new symbol}
     stat);
-  if sys_error(stat) then return;
+  if sys_error(stat) then goto abort1;
+  sym_p^.symtype := code_symtype_scope_k; {this symbol is a subordinate scope}
 
   code_symtab_new (                    {create memories symbol table}
     code_p^, sym_p^, code_p^.memsym_p);
+  return;                              {normal return, new lib use created}
+{
+*   Error exits.  STAT is already set.
+}
+abort1:
+  util_mem_context_del (mem_p);        {delete the new memory context}
   end;
 {
 ********************************************************************************

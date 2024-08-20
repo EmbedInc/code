@@ -84,7 +84,8 @@ begin
 *   Subroutine CODE_SYM_NEW_CURRSCOPE (CODE, NAME, SYM_P, STAT)
 *
 *   Create a new symbol within the current symbol scope.  NAME is the name of
-*   the symbol to create.  SYM_P is returned pointing to the new symbol.
+*   the symbol to create.  SYM_P is returned pointing to the new symbol.  The
+*   symbol type will be initialized to undefined.
 }
 procedure code_sym_new_currscope (     {create new symbol in curr scope, err if exists}
   in out  code: code_t;                {CODE library use state}

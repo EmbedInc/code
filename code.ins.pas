@@ -687,7 +687,7 @@ code_refid_com_k: (                    {a common block reference}
     exp_p: code_exp_p_t;               {points to expression for this value}
     end;
 
-  code_case_t = record                 {one case is list of cases}
+  code_case_t = record                 {one case in list of cases}
     next_p: code_case_p_t;             {next case in the list}
     comm_p: code_comm_p_t;             {related comments}
     vals_p: code_caseval_p_t;          {values for selecting this case}

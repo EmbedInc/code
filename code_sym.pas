@@ -1,10 +1,27 @@
-{   Symbol manipulation
+{   Symbol manipulation.
 }
 module code_sym;
+define code_sym_mem;
 define code_sym_new;
 define code_sym_lookup;
-define code_sym_new_currscope;
+define code_sym_inscope;
+define code_sym_curr;
 %include 'code2.ins.pas';
+{
+********************************************************************************
+*
+*   Function CODE_SYM_MEM (SYM)
+*
+*   Get the pointer to the memory context the symbol SYM was allocated in.
+}
+function code_sym_mem (                {get memory context symbol is allocated in}
+  in      sym: code_symbol_t)          {symbol to get memory context of}
+  :util_mem_context_p_t;               {retrurned pointer to symbol's mem context}
+  val_param;
+
+begin
+  code_sym_mem := string_hash_mem (sym.symtab_p^.hash);
+  end;
 {
 ********************************************************************************
 *
@@ -58,8 +75,8 @@ begin
 *
 *   Subroutine CODE_SYM_LOOKUP (CODE, NAME, SYMTAB, SYM_P)
 *
-*   Look up the symbol NAME in the symbol SYMTAB.  SYM_P is returned pointing to
-*   the symbol if found, and NIL if not found.
+*   Look up the symbol NAME in the symbol table SYMTAB.  SYM_P is returned
+*   pointing to the symbol if found, and NIL if not found.
 }
 procedure code_sym_lookup (            {look up symbol name in a symbol table}
   in out  code: code_t;                {CODE library use state}
@@ -81,24 +98,55 @@ begin
 {
 ********************************************************************************
 *
-*   Subroutine CODE_SYM_NEW_CURRSCOPE (CODE, NAME, SYM_P, STAT)
+*   Subroutine CODE_SYM_INSCOPE (CODE, NAME, SYMTYPE, SCOPE, SYM_P, STAT)
 *
-*   Create a new symbol within the current symbol scope.  NAME is the name of
-*   the symbol to create.  SYM_P is returned pointing to the new symbol.  The
-*   symbol type will be initialized to undefined.
+*   Create the symbol NAME of type SYMTYPE within the scope SCOPE.  SYM_P is
+*   returned pointing to the new symbol.  It is an error if the symbol
+*   already exists.  The symbol data specific to its type is not set.
 }
-procedure code_sym_new_currscope (     {create new symbol in curr scope, err if exists}
+procedure code_sym_inscope (           {create symbol in specific scope}
   in out  code: code_t;                {CODE library use state}
   in      name: univ string_var_arg_t; {name of symbol to create}
+  in      symtype: code_symtype_k_t;   {type of symbol to create}
+  in out  scope: code_scope_t;         {scope to create the symbol within}
+  out     sym_p: code_symbol_p_t;      {returned pointer to new symbol}
+  out     stat: sys_err_t);            {completion status}
+  val_param;
+
+var
+  tab_p: code_symtab_p_t;              {to symbol table for this symbol}
+
+begin
+  tab_p := code_symtab_symtype (code, scope, symtype); {get pnt to symbol table}
+
+  code_sym_new (code, name, tab_p^, sym_p, stat); {create the symbol}
+  if sys_error(stat) then return;
+
+  sym_p^.symtype := symtype;           {set the type of this symbol}
+  end;
+{
+********************************************************************************
+*
+*   Subroutine CODE_SYM_CURR (CODE, NAME, SYMTYPE, SYM_P, STAT)
+*
+*   Create the symbol NAME of type SYMTYPE within the current scope.  SYM_P is
+*   returned pointing to the new symbol.  It is an error if the symbol
+*   already exists.  The symbol data specific to its type is not set.
+}
+procedure code_sym_curr (              {create symbol in current scope}
+  in out  code: code_t;                {CODE library use state}
+  in      name: univ string_var_arg_t; {name of symbol to create}
+  in      symtype: code_symtype_k_t;   {type of symbol to create}
   out     sym_p: code_symbol_p_t;      {returned pointer to new symbol}
   out     stat: sys_err_t);            {completion status}
   val_param;
 
 begin
-  code_sym_new (                       {create new symbol}
+  code_sym_inscope (                   {create the symbol}
     code,                              {CODE library use state}
-    name,                              {name of symbol to create}
-    code.scope_p^,                     {symbol table to create new symbol in}
+    name,                              {symbol name}
+    symtype,                           {type of symbol to create}
+    code.scope_p^,                     {scope to create symbol in}
     sym_p,                             {returned pointer to the new symbol}
-    stat);                             {completion status}
+    stat);                             {returned completion status}
   end;

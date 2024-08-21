@@ -73,11 +73,10 @@ begin
     code_p);                           {returned pointer to the new memory}
   if util_mem_grab_err (code_p, sizeof(code_p^), stat) {error getting the memory ?}
     then goto abort1;
-
-  code_p^.mem_p := mem_p;              {save pointer to mem context for this lib use}
 {
-*   Fill in remaining fields.
+*   Fill in the new library use state.
 }
+  code_p^.mem_p := mem_p;              {save pointer to mem context for this lib use}
   code_p^.config.symlen_max := inicfg.symlen_max;
   code_p^.config.n_symbuck := inicfg.n_symbuck;
   fline_cpos_init (code_p^.parse.pos);
@@ -85,23 +84,31 @@ begin
   code_p^.parse.nextlevel := 0;
   code_p^.comm_block_p := nil;
   code_p^.comm_eol_p := nil;
-  code_symtab_init (                   {initialize root symbol table}
-    code_p^, code_p^.mem_p^, code_p^.sym_root);
-  code_p^.scope_p := addr(code_p^.sym_root); {init to at root scope}
-{
-*   Create the top level scope MEM, and then create the memories symbol table
-*   subordinate to it.
-}
-  code_sym_new_currscope (             {create top level MEM symbol}
+  {
+  *   Create the root scope.  CODE_SCOPE_PUSH always creates a new scope
+  *   subordinate to the current scope.  We initialize the current scope to NIL,
+  *   which causes the root scope to be created.
+  }
+  code_p^.scope_p := nil;              {init to no current scope}
+  code_scope_push (code_p^);           {create root scope and make it current}
+  code_p^.scope_root_p := code_p^.scope_p; {save pointer to the root scope}
+  {
+  *   Create the top level scope MEM, and then create the memories symbol table
+  *   subordinate to it.
+  }
+  code_sym_curr (                      {create the MEM scope symbol}
     code_p^,                           {CODE library use state}
     string_v('MEM'),                   {symbol name}
+    code_symtype_scope_k,              {type of symbol to create}
     sym_p,                             {returned pointer to the new symbol}
     stat);
   if sys_error(stat) then goto abort1;
-  sym_p^.symtype := code_symtype_scope_k; {this symbol is a subordinate scope}
 
-  code_symtab_new (                    {create memories symbol table}
-    code_p^, sym_p^, code_p^.memsym_p);
+  code_symtab_new_sym (                {create memories symbol table}
+    code_p^,                           {CODE library use state}
+    sym_p^,                            {parent symbol for the new symbol table}
+    code_p^.memsym_p);                 {returned pointer to the new symbol table}
+
   return;                              {normal return, new lib use created}
 {
 *   Error exits.  STAT is already set.

@@ -51,7 +51,35 @@ type
   code_val_set_p_t = ^code_val_set_t;
   code_value_p_t = ^code_value_t;
   code_symtab_p_t = ^code_symtab_t;
+{
+*   Comments.  These are in a tree structured hierarchy.
+}
+  code_commty_k_t = (                  {types of comments}
+    code_commty_block_k,               {block of comment lines}
+    code_commty_eol_k);                {end of line comment}
 
+  code_comm_t = record                 {one comment}
+    prev_p: code_comm_p_t;             {previous block comments also applying here}
+    lnum: sys_int_machine_t;           {sequential source line number of last line}
+    pos: fline_cpos_t;                 {start position of comment in source files}
+    commty: code_commty_k_t;           {comment type}
+    case code_commty_k_t of
+code_commty_block_k: (                 {block of comment lines}
+      block_level: sys_int_machine_t;  {nesting level, top = 0}
+      block_list_p: string_fwlist_p_t; {points to list of comment text lines}
+      block_last_p: string_fwlist_p_t; {points to last comment line in list}
+      block_keep: boolean;             {keep in previous list of this level}
+      );
+code_commty_eol_k: (                   {end of line comment}
+      eol_prev_p: code_comm_p_t;       {to previous end of line comment}
+      eol_str_p: string_var_p_t;       {the comment text string}
+      eol_used: boolean;               {this EOL comment has been applied}
+      );
+    end;
+{
+*   Memories and address spaces.  Memories are where data is stored.  Address
+*   spaces are how the processor accesses that data.
+}
   code_memaccs_k_t = (                 {types of access to a memory or address space}
     code_memaccs_rd_k,                 {read}
     code_memaccs_wr_k,                 {write}
@@ -62,6 +90,180 @@ type
     code_memattr_nv_k);                {memory is non-volatile}
   code_memattr_t = set of code_memattr_k_t;
 
+  code_memory_t = record               {one physical memory connected to the processor}
+    sym_p: code_symbol_p_t;            {points to symbol data in symbol table}
+    region_p: code_memregion_p_t;      {points to list of regions within this memory}
+    bitsadr: sys_int_machine_t;        {number of bits in address}
+    bitsdat: sys_int_machine_t;        {number of bits per addressable word}
+    accs: code_memaccs_t;              {types of access to this memory}
+    attr: code_memattr_t;              {additional attibute flags}
+    end;
+
+  code_memregion_t = record            {region within a memory}
+    next_p: code_memregion_p_t;        {to next region in the same memory}
+    sym_p: code_symbol_p_t;            {points to symbol data in symbol table}
+    mem_p: code_memory_p_t;            {memory this region is within}
+    adrst: sys_int_conv32_t;           {start address of this region within the memory}
+    adren: sys_int_conv32_t;           {end address of this region within the memory}
+    accs: code_memaccs_t;              {types of access to this memory}
+    end;
+
+  code_memreg_ent_t = record           {one entry in list of memory regions}
+    next_p: code_memreg_ent_p_t;       {to next list entry}
+    region_p: code_memregion_p_t;      {points to the mem region for this list entry}
+    end;
+
+  code_adrspace_t = record             {address space visible to the processor}
+    sym_p: code_symbol_p_t;            {points to symbol data in symbol table}
+    region_p: code_adrregion_p_t;      {points to list of regions within this adr space}
+    bitsadr: sys_int_machine_t;        {number of bits in address}
+    bitsdat: sys_int_machine_t;        {number of bits per addressable word}
+    accs: code_memaccs_t;              {types of access to this memory}
+    end;
+
+  code_adrregion_t = record            {region of address space with consistant attributes}
+    next_p: code_adrregion_p_t;        {to next region within same address space}
+    sym_p: code_symbol_p_t;            {points to symbol data in symbol table}
+    space_p: code_adrspace_p_t;        {address space this region is within}
+    adrst: sys_int_conv32_t;           {start address of this region within adr space}
+    adren: sys_int_conv32_t;           {end address of this region within adr space}
+    memreg_p: code_memreg_ent_p_t;     {list of mem regions mapped to this adr region}
+    accs: code_memaccs_t;              {types of access to this memory}
+    end;
+{
+*   Data types.
+}
+  code_typid_k_t = (                   {all the different data types}
+    code_typid_undef_k,                {data type was referenced, but not defined yet}
+    code_typid_undefp_k,               {data type is a pointer, but not defined yet}
+    code_typid_int_k,                  {integer}
+    code_typid_enum_k,                 {enumerated (names for each value)}
+    code_typid_float_k,                {floating point}
+    code_typid_bool_k,                 {TRUE/FALSE (Boolean)}
+    code_typid_char_k,                 {character}
+    code_typid_agg_k,                  {aggregate}
+    code_typid_array_k,                {array}
+    code_typid_set_k,                  {set of an enumerated type}
+    code_typid_range_k,                {subrange of a simple data type}
+    code_typid_proc_k,                 {pointer to a procedure}
+    code_typid_pnt_k,                  {pointer to data}
+    code_typid_vstr_k,                 {string with curr len and max len stored}
+    code_typid_flxstr_k,               {string with extendable length}
+    code_typid_copy_k);                {exact copy of another data type}
+
+  code_typflag_k_t = (                 {flags for data types}
+    code_typflag_pack_k);              {pack to min bits}
+  code_typflag_t = set of code_typflag_k_t;
+
+  code_dtype_t = record                {definition of a data type}
+    symbol_p: code_symbol_p_t;         {points to symbol representing this data type}
+    comm_p: code_comm_p_t;             {related comments}
+    bits_min: sys_int_machine_t;       {minimum required bits}
+    mem_p: code_memory_t;              {memory this data structure in, if specific}
+    flags: code_typflag_k_t;           {set of individual option flags}
+    typ: code_typid_k_t;               {data type ID, use CODE_TYPID_xxx_K}
+    case code_typid_k_t of             {different data for each type}
+code_typid_undef_k: (                  {undefined}
+      );
+code_typid_undefp_k: (                 {undefined pointer}
+      );
+code_typid_int_k: (                    {data type is an integer}
+      signed: boolean;                 {integer is signed, not unsigned}
+      );
+code_typid_enum_k: (                   {data type is enumerated}
+      enum_first_p: code_symbol_p_t;   {points to first enumerated name}
+      enum_last_p: code_symbol_p_t;    {points to last enumerated name}
+      );
+code_typid_float_k: (                  {data type is floating point}
+      );
+code_typid_bool_k: (                   {data type is boolean}
+      );
+code_typid_char_k: (                   {data type is character}
+      );
+code_typid_agg_k: (                    {data type is aggregate}
+      agg_symtab_p: code_symtab_p_t;   {to symbol table for field names}
+      agg_first_p: code_symbol_p_t;    {points to symbol def for first field}
+      );
+code_typid_array_k: (                  {data type is an array}
+      ar_dtype_ele_p: code_dtype_p_t;  {data type of final array elements}
+      ar_dtype_rem_p: code_dtype_p_t;  {dtype of array "remainder" after 1st subscr}
+      ar_ind_first_p: code_exp_p_t;    {pnt to exp for first legal subscript value}
+      ar_ind_last_p: code_exp_p_t;     {pnt to exp for last val, NIL = unlimited}
+      ar_ind_n: sys_int_machine_t;     {number of indicies in first subscript}
+      ar_n_subscr: sys_int_machine_t;  {number of subscripts}
+      ar_string: boolean;              {TRUE if one-dimensional array of characters}
+      );
+code_typid_set_k: (                    {data type is a set}
+      set_dtype_p: code_dtype_p_t;     {points to data type of set elements}
+      set_n_ent: sys_int_machine_t;    {CODE_VAL_SET_T array entries needed for set value}
+      set_dtype_final: boolean;        {TRUE if final data type definately known}
+      );
+code_typid_range_k: (                  {data type is a subrange of another data type}
+      range_dtype_p: code_dtype_p_t;   {points to base data type of subrange}
+      range_first_p: code_exp_p_t;     {expression for start of range value}
+      range_last_p: code_exp_p_t;      {expression of end of range value}
+      range_ord_first: sys_int_max_t;  {ordinal value of first possible value}
+      range_n_vals: sys_int_max_t;     {number of values}
+      );
+code_typid_proc_k: (                   {data type is a procedure}
+      proc_p: code_proc_p_t;           {points to procedure interface definition}
+      );
+code_typid_pnt_k: (                    {data type is a pointer}
+      pnt_dtype_p: code_dtype_p_t;     {pointed to data type, NIL = UNIV_PTR}
+      );
+code_typid_vstr_k: (                   {string with current and max lengths}
+      vstr_max: sys_int_machine_t;     {max string length}
+      );
+code_typid_flxstr_k: (                 {string with extendable length}
+      );
+code_typid_copy_k: (                   {data type is a copy of another}
+      copy_symbol_p: code_symbol_p_t;  {points to copied data type symbol}
+      copy_dtype_p: code_dtype_p_t;    {points to ultimate data type definition}
+      );
+    end;
+{
+*   Constants.
+}
+  code_val_set_t =                     {one bit for each possible element in a set}
+    array[0..0] of sys_int_conv32_t;   {32 bits stored in each array element}
+
+  code_value_t = record                {data describing a known constant value}
+    comm_p: code_comm_p_t;             {related comments}
+    typid: code_typid_k_t;             {data type ID of the constant}
+    case code_typid_k_t of             {different data for each data type}
+code_typid_int_k: (                    {data type is an integer}
+      int_val: sys_int_max_t;
+      );
+code_typid_enum_k: (                   {data type is enumerated}
+      enum_sym_p: code_symbol_p_t;
+      );
+code_typid_float_k: (                  {data type is floating point}
+      float_val: double;
+      );
+code_typid_bool_k: (                   {data type is boolean}
+      bool_val: boolean;
+      );
+code_typid_char_k: (                   {data type is character}
+      char_val: char;
+      );
+code_typid_array_k: (                  {data type is array}
+      ar_str_p: string_var_p_t;        {points to string if ar is string data type}
+      );
+code_typid_set_k: (                    {data type is a SET}
+      set_dtype_p: code_dtype_p_t;     {points to data type descriptor for SET}
+      set_val_p: code_val_set_p_t;     {set value, one bit for each possible element}
+      );
+code_typid_pnt_k: (                    {data type is a pointer}
+      pnt_dtype_p: code_dtype_p_t;     {points to data type desc of pointer}
+      pnt_exp_p: code_exp_p_t;         {pnt to variable being referenced, may be NIL}
+      );
+    end;
+{
+*   Symbols, symbol tables, and scopes.  Symbols are names stored in symbol
+*   tables.  Symbol tables are within scopes.  There can be one symbol table of
+*   each type in a scope.  Scopes are tree-structured, starting from the root
+*   scope.
+}
   code_symtype_k_t = (                 {all the different symbol types}
     code_symtype_undef_k,              {symbol is known, but not defined yet}
     code_symtype_scope_k,              {sub-scope within parent scope}
@@ -100,90 +302,134 @@ type
     code_symflag_static_k);            {symbol represents storage that is static}
   code_symflag_t = set of code_symflag_k_t;
 
-  code_typid_k_t = (                   {all the different data types}
-    code_typid_undef_k,                {data type was referenced, but not defined yet}
-    code_typid_undefp_k,               {data type is a pointer, but not defined yet}
-    code_typid_int_k,                  {integer}
-    code_typid_enum_k,                 {enumerated (names for each value)}
-    code_typid_float_k,                {floating point}
-    code_typid_bool_k,                 {TRUE/FALSE (Boolean)}
-    code_typid_char_k,                 {character}
-    code_typid_agg_k,                  {aggregate }
-    code_typid_array_k,                {array}
-    code_typid_set_k,                  {set of an enumerated type}
-    code_typid_range_k,                {subrange of a simple data type}
-    code_typid_proc_k,                 {pointer to a procedure}
-    code_typid_pnt_k,                  {pointer to data}
-    code_typid_vstr_k,                 {string with curr len and max len stored}
-    code_typid_flxstr_k,               {string with extendable length}
-    code_typid_copy_k);                {exact copy of another data type}
+  code_sym_field_t = record            {unique data for sym that is field of aggregate}
+    dtype_p: code_dtype_p_t;           {points to data type for this field}
+    parent_p: code_dtype_p_t;          {points to data type that includes this field}
+    next_p: code_symbol_p_t;           {points to symbol for next field}
+    ofs_adr: sys_int_adr_t;            {machine adr offset from aggregate start}
+    ofs_bits: sys_int_machine_t;       {additional bits offset}
+    variant: sys_int_machine_t;        {sequential overlay number, 0 = base}
+    value: code_value_t;               {user ID for this overlay}
+    end;
 
-  code_typflag_k_t = (                 {flags for data types}
-    code_typflag_pack_k);              {pack to min bits}
-  code_typflag_t = set of code_typflag_k_t;
+  code_sym_proc_t = record             {unique data for sym that is procedure}
+    proc_p: code_proc_p_t;             {procedure descriptor}
+    varscope_p: code_scope_p_t;        {points to scope for rest of procedure}
+    vardtype_p: code_dtype_p_t;        {points to data type for the procedure (not func ret)}
+    varfuncvar_p: code_symbol_p_t;     {points to function return "variable" symbol}
+    varmemreg_p: code_memreg_ent_p_t;  {points to list of mem regions routine may be in}
+    end;
 
-  code_expid_k_t = (                   {IDs for different types of expressions}
-    code_expid_const_k,                {constant}
-    code_expid_var_k,                  {variable or field in aggregate}
-    code_expid_func_k,                 {value of function return}
-    code_expid_set_k,                  {set}
-    code_expid_arele_k,                {values for array elements}
-    code_expid_range_k,                {range of values}
-    code_expid_op_k);                  {result of operation}
+  code_sym_var_t = record              {unique data for sym that is a variable}
+    dtype_p: code_dtype_p_t;           {pointer to data type definition}
+    val_p: code_exp_p_t;               {points to initial value expression, if any}
+    arg_p: code_dumarg_p_t;            {points to arg descriptor if dummy argument}
+    com_p: code_symbol_p_t;            {points to common block symbol if in common}
+    next_p: code_symbol_p_t;           {points to next var in common block}
+    memreg_p: code_memreg_ent_p_t;     {points to list of mem regions variable may be in}
+    end;
+
+  code_symbol_t = record               {all the data about one symbol}
+    name_p: string_var_p_t;            {to symbol name string}
+    pos: fline_cpos_t;                 {position of definition in source code}
+    comm_p: code_comm_p_t;             {related comments}
+    symtab_p: code_symtab_p_t;         {to symbol table this symbol is in}
+    flags: code_symflag_t;             {set of individual flags}
+    app_p: univ_ptr;                   {arbitrary pointer to app-specific data}
+    symtype: code_symtype_k_t;         {symbol type, use CODE_SYMTYPE_xxx_K}
+    case code_symtype_k_t of           {different data for each symbol type}
+code_symtype_undef_k: (                {symbol not defined yet, only name known}
+      );
+code_symtype_scope_k: (                {symbol is sub-scope within parent scope}
+      scope_scope_p: code_scope_p_t;   {scope this symbol represents}
+      );
+code_symtype_memory_k: (               {memory}
+      memory_p: code_memory_p_t;       {points to memory descriptor}
+      );
+code_symtype_memreg_k: (               {memory region}
+      memreg_p: code_memregion_p_t;    {points to memory region descriptor}
+      );
+code_symtype_adrsp_k: (                {address space}
+      adrsp_p: code_adrspace_p_t;      {points to address space descriptor}
+      );
+code_symtype_adrreg_k: (               {address region}
+      adrreg_p: code_adrregion_p_t;    {points to address region descriptor}
+      );
+code_symtype_const_k: (                {symbol is a constant}
+      const_exp_p: code_exp_p_t;       {points to expression defining constant value}
+      );
+code_symtype_enum_k: (                 {symbol is value of an enumerated type}
+      enum_prev_p: code_symbol_p_t;    {points to name for next lower value}
+      enum_next_p: code_symbol_p_t;    {points to name for next higher value}
+      enum_dtype_p: code_dtype_p_t;    {points to enumerated data type}
+      enum_ordval: sys_int_machine_t;  {ordinal value of this name}
+      );
+code_symtype_dtype_k: (                {symbol is a data type}
+      dtype_dtype_p: code_dtype_p_t;   {points to data type descriptor}
+      );
+code_symtype_field_k: (                {symbol is a field name of aggregate data type}
+      field_p: code_sym_field_p_t;     {to specific data for this symbol type}
+      );
+code_symtype_var_k: (                  {symbol is a variable}
+      var_p: code_sym_var_p_t;         {to specific data for this symbol type}
+      );
+code_symtype_alias_k: (                {symbol is an alias for another symbol reference}
+      alias_symref_p: code_symref_p_t; {points to symbol reference alias expands to}
+      );
+code_symtype_proc_k: (                 {symbol is a procedure}
+      proc_p: code_sym_proc_p_t;       {to specific data for this symbol type}
+      );
+code_symtype_prog_k: (                 {symbol is a program name}
+      prog_scope_p: code_scope_p_t;    {to scope inside the program}
+      prog_memreg_p: code_memreg_ent_p_t; {points to list of mem regions program may be in}
+      );
+code_symtype_com_k: (                  {symbol is a common block name}
+      com_first_p: code_symbol_p_t;    {points to first variable in common block}
+      com_size: sys_int_max_t;         {common block size in machine addresses}
+      com_memreg_p: code_memreg_ent_p_t; {points to list of mem regions block may be in}
+      );
+code_symtype_module_k: (               {symbol is a module name}
+      module_scope_p: code_scope_p_t;  {to scope inside the module}
+      );
+code_symtype_label_k: (                {symbol is a statement label}
+      label_ele_p: code_ele_p_t;       {points to code element for the label}
+      );
+    end;
+
+  code_sylist_t = record               {symbols list entry}
+    next_p: code_sylist_p_t;           {to next list entry}
+    sym_p: code_symbol_p_t;            {symbol for this list entry}
+    end;
+
+  code_symtab_t = record               {data for one symbol table}
+    scope_p: code_scope_p_t;           {to scope for general symbol tables}
+    parsym_p: code_symbol_p_t;         {to parent symbol for private tables}
+    hash: string_hash_handle_t;        {handle to hash table symbols stored in}
+    end;
+
+  code_scope_t = record                {data about a scope or namespace}
+    parscope_p: code_scope_p_t;        {to parent scope, NIL at root}
+    symbol_p: code_symbol_p_t;         {to symbol defining this scope, NIL at root}
+    symtab_scope_p: code_symtab_p_t;   {to table for subordinate scopes}
+    symtab_vcon_p: code_symtab_p_t;    {to table for variables and constants}
+    symtab_dtype_p: code_symtab_p_t;   {to table for data types}
+    symtab_rout_p: code_symtab_p_t;    {to table for routines}
+    symtab_label_p: code_symtab_p_t;   {to table for labels}
+    symtab_other_p: code_symtab_p_t;   {to table for all other symbol types}
+    end;
+{
+*   Expressions.
+}
+  code_rwflag_k_t = (                  {permissions to read/write entity}
+    code_rwflag_read_k,                {entity may be read from}
+    code_rwflag_write_k);              {entity may be written to}
+  code_rwflag_t = code_rwflag_k_t;
 
   code_expflag_k_t = (                 {individual flags relating to expressions}
     code_expflag_tyhard_k,             {hard data type, not flexible based on usage}
     code_expflag_eval_k,               {attempted to resolve constant value}
     code_expflag_val_k);               {resolved to constant value}
   code_expflag_t = set of code_expflag_k_t;
-
-  code_argflag_k_t = (                 {individual flags for arguments to routines}
-    code_argflag_pass_unk_k,           {passing method unknown or not set yet}
-    code_argflag_pass_val_k,           {passed by value}
-    code_argflag_pass_ref_k,           {passed by reference}
-    code_argflag_dtany_k,              {any data type allowed}
-    code_argflag_dtarlen_k);           {array type, but any length of last subscript allowed}
-  code_argflag_t = set of code_argflag_k_t;
-
-  code_procflag_k_t = (                {flags for routines}
-    code_procflag_noreturn_k);         {routine will never return to caller}
-  code_procflag_t = set of code_procflag_k_t;
-
-  code_rwflag_k_t = (                  {permissions to read/write entity}
-    code_rwflag_read_k,                {entity may be read from}
-    code_rwflag_write_k);              {entity may be written to}
-  code_rwflag_t = code_rwflag_k_t;
-
-  code_refmodid_k_t = (                {all the different variable modifier types}
-    code_refmodid_unpnt_k,             {pointer dereference}
-    code_refmodid_subscr_k,            {expression for next less sig subscript}
-    code_refmodid_field_k);            {field name in current record}
-
-  code_refid_k_t = (                   {IDs for direct symbol reference types}
-    code_refid_var_k,                  {variable}
-    code_refid_dtype_k,                {data type}
-    code_refid_rout_k,                 {routine}
-    code_refid_const_k,                {named constant}
-    code_refid_com_k);                 {common block}
-
-  code_rename_k_t = (                  {what kind of re-naming is allowed for sym}
-    code_rename_ncheck_k,              {use rename rules, no check for uniqueness}
-    code_rename_none_k,                {use rename rules, must be unique in curr scope}
-    code_rename_scope_k,               {re-name to make unique in current scope}
-    code_rename_all_k);                {re-name to make unique in all visible scopes}
-
-  code_scopeflag_k_t = (               {flags for scopes}
-    code_scopeflag_used_k);            {something in this scope was used}
-  code_scopeflag_t = set of code_scopeflag_k_t;
-
-  code_iterid_k_t = (                  {ID for loop iteration type}
-    code_iterid_cnt_k,                 {counted loop}
-    code_iterid_while_k);              {loop while condition true}
-
-  code_incdir_k_t = (                  {loop increment direction flag}
-    code_incdir_up_k,                  {increment is positive}
-    code_incdir_down_k,                {increment is negative}
-    code_incdir_unk_k);                {increment direction is unknown}
 
   code_opid_k_t = (                    {known operations that can be performed on data}
     code_opid_abs_k,                   {absolute value}
@@ -247,322 +493,14 @@ type
     code_opid_xorlog_k,                {logical exclusive OR}
     code_opid_setinv_k);               {set inversion}
 
-  code_ele_k_t = (                     {IDs for each type of code element}
-    code_ele_module_k,                 {start of a grouping of routines}
-    code_ele_prog_k,                   {start of top level program}
-    code_ele_rout_k,                   {start of a routine}
-    code_ele_exec_k,                   {points to chain of executable code}
-    {
-    *   Elements only used within executable code.
-    }
-    code_ele_label_k,                  {label (GOTO target)}
-    code_ele_call_k,                   {subroutine call}
-    code_ele_assign_k,                 {assignment to a variable}
-    code_ele_goto_k,                   {unconditional transfer of control}
-    code_ele_pick_k,                   {execute one or more code cases}
-    code_ele_if_k,                     {IF ... THEN ... ELSE ... statement}
-    code_ele_block_k,                  {nested block of code}
-    code_ele_next_k,                   {to next iteration of block}
-    code_ele_exit_k,                   {end execution of block}
-    code_ele_return_k,                 {return from subroutine}
-    code_ele_alias_k,                  {block with symbol aliases applied}
-    code_ele_discard_k,                {call function, but discard its return value}
-    code_ele_write_k,                  {write string to standard output}
-    code_ele_write_eol_k);             {write end of line to standard output}
-
-  code_commty_k_t = (                  {types of comments}
-    code_commty_block_k,               {block of comment lines}
-    code_commty_eol_k);                {end of line comment}
-{
-****************************************
-*
-*   Data structures.
-}
-  code_comm_t = record                 {one comment}
-    prev_p: code_comm_p_t;             {previous block comments also applying here}
-    lnum: sys_int_machine_t;           {sequential source line number of last line}
-    pos: fline_cpos_t;                 {start position of comment in source files}
-    commty: code_commty_k_t;           {comment type}
-    case code_commty_k_t of
-code_commty_block_k: (                 {block of comment lines}
-      block_level: sys_int_machine_t;  {nesting level, top = 0}
-      block_list_p: string_fwlist_p_t; {points to list of comment text lines}
-      block_last_p: string_fwlist_p_t; {points to last comment line in list}
-      block_keep: boolean;             {keep in previous list of this level}
-      );
-code_commty_eol_k: (                   {end of line comment}
-      eol_prev_p: code_comm_p_t;       {to previous end of line comment}
-      eol_str_p: string_var_p_t;       {the comment text string}
-      eol_used: boolean;               {this EOL comment has been applied}
-      );
-    end;
-
-  code_outcfg_t = record               {configuration specific to the output implementation}
-    int_bits: sys_int_machine_t;       {default integer size in bits, 0 undefined}
-    int_pos: fline_cpos_t;             {source code postion where defined}
-    end;
-
-  {   Memories are where data is stored.  Address spaces are how the processor
-  *   accesses that data.
-  }
-  code_memory_t = record               {one physical memory connected to the processor}
-    sym_p: code_symbol_p_t;            {points to symbol data in symbol table}
-    region_p: code_memregion_p_t;      {points to list of regions within this memory}
-    bitsadr: sys_int_machine_t;        {number of bits in address}
-    bitsdat: sys_int_machine_t;        {number of bits per addressable word}
-    accs: code_memaccs_t;              {types of access to this memory}
-    attr: code_memattr_t;              {additional attibute flags}
-    end;
-
-  code_memregion_t = record            {region within a memory}
-    next_p: code_memregion_p_t;        {to next region in the same memory}
-    sym_p: code_symbol_p_t;            {points to symbol data in symbol table}
-    mem_p: code_memory_p_t;            {memory this region is within}
-    adrst: sys_int_conv32_t;           {start address of this region within the memory}
-    adren: sys_int_conv32_t;           {end address of this region within the memory}
-    accs: code_memaccs_t;              {types of access to this memory}
-    end;
-
-  code_memreg_ent_t = record           {one entry in list of memory regions}
-    next_p: code_memreg_ent_p_t;       {to next list entry}
-    region_p: code_memregion_p_t;      {points to the mem region for this list entry}
-    end;
-
-  code_adrspace_t = record             {address space visible to the processor}
-    sym_p: code_symbol_p_t;            {points to symbol data in symbol table}
-    region_p: code_adrregion_p_t;      {points to list of regions within this adr space}
-    bitsadr: sys_int_machine_t;        {number of bits in address}
-    bitsdat: sys_int_machine_t;        {number of bits per addressable word}
-    accs: code_memaccs_t;              {types of access to this memory}
-    end;
-
-  code_adrregion_t = record            {region of address space with consistant attributes}
-    next_p: code_adrregion_p_t;        {to next region within same address space}
-    sym_p: code_symbol_p_t;            {points to symbol data in symbol table}
-    space_p: code_adrspace_p_t;        {address space this region is within}
-    adrst: sys_int_conv32_t;           {start address of this region within adr space}
-    adren: sys_int_conv32_t;           {end address of this region within adr space}
-    memreg_p: code_memreg_ent_p_t;     {list of mem regions mapped to this adr region}
-    accs: code_memaccs_t;              {types of access to this memory}
-    end;
-
-  code_val_set_t =                     {one bit for each possible element in a set}
-    array[0..0] of sys_int_conv32_t;   {32 bits stored in each array element}
-
-  code_value_t = record                {data describing a known constant value}
-    comm_p: code_comm_p_t;             {related comments}
-    typid: code_typid_k_t;             {data type ID of the constant}
-    case code_typid_k_t of             {different data for each data type}
-code_typid_int_k: (                    {data type is an integer}
-      int_val: sys_int_max_t;
-      );
-code_typid_enum_k: (                   {data type is enumerated}
-      enum_sym_p: code_symbol_p_t;
-      );
-code_typid_float_k: (                  {data type is floating point}
-      float_val: double;
-      );
-code_typid_bool_k: (                   {data type is boolean}
-      bool_val: boolean;
-      );
-code_typid_char_k: (                   {data type is character}
-      char_val: char;
-      );
-code_typid_array_k: (                  {data type is array}
-      ar_str_p: string_var_p_t;        {points to string if ar is string data type}
-      );
-code_typid_set_k: (                    {data type is a SET}
-      set_dtype_p: code_dtype_p_t;     {points to data type descriptor for SET}
-      set_val_p: code_val_set_p_t;     {set value, one bit for each possible element}
-      );
-code_typid_pnt_k: (                    {data type is a pointer}
-      pnt_dtype_p: code_dtype_p_t;     {points to data type desc of pointer}
-      pnt_exp_p: code_exp_p_t;         {pnt to variable being referenced, may be NIL}
-      );
-    end;
-
-  code_symtabty_k_t = (                {IDs for each symbol table type}
-    code_symtabty_scope_k,             {subordinate scopes}
-    code_symtabty_vcon_k,              {variables and constants}
-    code_symtabty_dtype_k,             {data types}
-    code_symtabty_rout_k,              {routines}
-    code_symtabty_label_k);            {labels}
-  code_symtabty_t = set of code_symtabty_k_t; {list of possible subordinate symbol tables}
-
-  code_scope_t = record                {data about a scope or namespace}
-    symbol_p: code_symbol_p_t;         {points to top symbol for this scope}
-    flags: code_scopeflag_t;           {set of individual flags}
-    end;
-
-  code_sym_field_t = record            {unique data for sym that is field of aggregate}
-    dtype_p: code_dtype_p_t;           {points to data type for this field}
-    parent_p: code_dtype_p_t;          {points to data type that includes this field}
-    next_p: code_symbol_p_t;           {points to symbol for next field}
-    ofs_adr: sys_int_adr_t;            {machine adr offset from aggregate start}
-    ofs_bits: sys_int_machine_t;       {additional bits offset}
-    variant: sys_int_machine_t;        {sequential overlay number, 0 = base}
-    value: code_value_t;               {user ID for this overlay}
-    end;
-
-  code_sym_proc_t = record             {unique data for sym that is procedure}
-    proc_p: code_proc_p_t;             {procedure descriptor}
-    varscope_p: code_scope_p_t;        {points to scope for rest of procedure}
-    vardtype_p: code_dtype_p_t;        {points to data type for the procedure (not func ret)}
-    varfuncvar_p: code_symbol_p_t;     {points to function return "variable" symbol}
-    varmemreg_p: code_memreg_ent_p_t;  {points to list of mem regions routine may be in}
-    end;
-
-  code_sym_var_t = record              {unique data for sym that is a variable}
-    dtype_p: code_dtype_p_t;           {pointer to data type definition}
-    val_p: code_exp_p_t;               {points to initial value expression, if any}
-    arg_p: code_dumarg_p_t;            {points to arg descriptor if dummy argument}
-    com_p: code_symbol_p_t;            {points to common block symbol if in common}
-    next_p: code_symbol_p_t;           {points to next var in common block}
-    memreg_p: code_memreg_ent_p_t;     {points to list of mem regions variable may be in}
-    end;
-
-  code_symbol_t = record               {all the data about one symbol}
-    name_p: string_var_p_t;            {to symbol name string}
-    pos: fline_cpos_t;                 {position of definition in source code}
-    comm_p: code_comm_p_t;             {related comments}
-    symtab_p: code_symtab_p_t;         {to symbol table this symbol is in}
-    flags: code_symflag_t;             {set of individual flags}
-    app_p: univ_ptr;                   {arbitrary pointer to app-specific data}
-    symtype: code_symtype_k_t;         {symbol type, use CODE_SYMTYPE_xxx_K}
-    case code_symtype_k_t of           {different data for each symbol type}
-code_symtype_undef_k: (                {symbol not defined yet, only name known}
-      );
-code_symtype_scope_k: (                {symbol is sub-scope within parent scope}
-      );
-code_symtype_memory_k: (               {memory}
-      memory_p: code_memory_p_t;       {points to memory descriptor}
-      );
-code_symtype_memreg_k: (               {memory region}
-      memreg_p: code_memregion_p_t;    {points to memory region descriptor}
-      );
-code_symtype_adrsp_k: (                {address space}
-      adrsp_p: code_adrspace_p_t;      {points to address space descriptor}
-      );
-code_symtype_adrreg_k: (               {address region}
-      adrreg_p: code_adrregion_p_t;    {points to address region descriptor}
-      );
-code_symtype_const_k: (                {symbol is a constant}
-      const_exp_p: code_exp_p_t;       {points to expression defining constant value}
-      );
-code_symtype_enum_k: (                 {symbol is value of an enumerated type}
-      enum_prev_p: code_symbol_p_t;    {points to name for next lower value}
-      enum_next_p: code_symbol_p_t;    {points to name for next higher value}
-      enum_dtype_p: code_dtype_p_t;    {points to enumerated data type}
-      enum_ordval: sys_int_machine_t;  {ordinal value of this name}
-      );
-code_symtype_dtype_k: (                {symbol is a data type}
-      dtype_dtype_p: code_dtype_p_t;   {points to data type descriptor}
-      );
-code_symtype_field_k: (                {symbol is a field name of aggregate data type}
-      field_p: code_sym_field_p_t;     {to specific data for this symbol type}
-      );
-code_symtype_var_k: (                  {symbol is a variable}
-      var_p: code_sym_var_p_t;         {to specific data for this symbol type}
-      );
-code_symtype_alias_k: (                {symbol is an alias for another symbol reference}
-      alias_symref_p: code_symref_p_t; {points to symbol reference alias expands to}
-      );
-code_symtype_proc_k: (                 {symbol is a procedure}
-      proc_p: code_sym_proc_p_t;       {to specific data for this symbol type}
-      );
-code_symtype_prog_k: (                 {symbol is a program name}
-      prog_scope_p: code_scope_p_t;    {points to scope for rest of program}
-      prog_memreg_p: code_memreg_ent_p_t; {points to list of mem regions program may be in}
-      );
-code_symtype_com_k: (                  {symbol is a common block name}
-      com_first_p: code_symbol_p_t;    {points to first variable in common block}
-      com_size: sys_int_max_t;         {common block size in machine addresses}
-      com_memreg_p: code_memreg_ent_p_t; {points to list of mem regions block may be in}
-      );
-code_symtype_module_k: (               {symbol is a module name}
-      module_scope_p: code_scope_p_t;  {points to scope for rest of module}
-      );
-code_symtype_label_k: (                {symbol is a statement label}
-      label_ele_p: code_ele_p_t;       {points to code element for the label}
-      );
-    end;
-
-  code_sylist_t = record               {symbols list entry}
-    next_p: code_sylist_p_t;           {to next list entry}
-    sym_p: code_symbol_p_t;            {symbol for this list entry}
-    end;
-
-  code_dtype_t = record                {definition of a data type}
-    symbol_p: code_symbol_p_t;         {points to symbol representing this data type}
-    comm_p: code_comm_p_t;             {related comments}
-    bits_min: sys_int_machine_t;       {minimum required bits}
-    mem_p: code_memory_t;              {memory this data structure in, if specific}
-    flags: code_typflag_k_t;           {set of individual option flags}
-    typ: code_typid_k_t;               {data type ID, use CODE_TYPID_xxx_K}
-    case code_typid_k_t of             {different data for each type}
-code_typid_undef_k: (                  {undefined}
-      );
-code_typid_undefp_k: (                 {undefined pointer}
-      );
-code_typid_int_k: (                    {data type is an integer}
-      signed: boolean;                 {integer is signed, not unsigned}
-      );
-code_typid_enum_k: (                   {data type is enumerated}
-      enum_first_p: code_symbol_p_t;   {points to first enumerated name}
-      enum_last_p: code_symbol_p_t;    {points to last enumerated name}
-      );
-code_typid_float_k: (                  {data type is floating point}
-      );
-code_typid_bool_k: (                   {data type is boolean}
-      );
-code_typid_char_k: (                   {data type is character}
-      );
-code_typid_agg_k: (                    {data type is aggregate}
-      rec_scope_p: code_scope_p_t;     {points to scope for field names}
-      rec_first_p: code_symbol_p_t;    {points to symbol def for first field}
-      );
-code_typid_array_k: (                  {data type is an array}
-      ar_dtype_ele_p: code_dtype_p_t;  {data type of final array elements}
-      ar_dtype_rem_p: code_dtype_p_t;  {dtype of array "remainder" after 1st subscr}
-      ar_ind_first_p: code_exp_p_t;    {pnt to exp for first legal subscript value}
-      ar_ind_last_p: code_exp_p_t;     {pnt to exp for last val, NIL = unlimited}
-      ar_ind_n: sys_int_machine_t;     {number of indicies in first subscript}
-      ar_n_subscr: sys_int_machine_t;  {number of subscripts}
-      ar_string: boolean;              {TRUE if one-dimensional array of characters}
-      );
-code_typid_set_k: (                    {data type is a set}
-      set_dtype_p: code_dtype_p_t;     {points to data type of set elements}
-      set_n_ent: sys_int_machine_t;    {CODE_VAL_SET_T array entries needed for set value}
-      set_dtype_final: boolean;        {TRUE if final data type definately known}
-      );
-code_typid_range_k: (                  {data type is a subrange of another data type}
-      range_dtype_p: code_dtype_p_t;   {points to base data type of subrange}
-      range_first_p: code_exp_p_t;     {expression for start of range value}
-      range_last_p: code_exp_p_t;      {expression of end of range value}
-      range_ord_first: sys_int_max_t;  {ordinal value of first possible value}
-      range_n_vals: sys_int_max_t;     {number of values}
-      );
-code_typid_proc_k: (                   {data type is a procedure}
-      proc_p: code_proc_p_t;           {points to procedure interface definition}
-      );
-code_typid_pnt_k: (                    {data type is a pointer}
-      pnt_dtype_p: code_dtype_p_t;     {pointed to data type, NIL = UNIV_PTR}
-      );
-code_typid_vstr_k: (                   {string with current and max lengths}
-      vstr_max: sys_int_machine_t;     {max string length}
-      );
-code_typid_flxstr_k: (                 {string with extendable length}
-      );
-code_typid_copy_k: (                   {data type is a copy of another}
-      copy_symbol_p: code_symbol_p_t;  {points to copied data type symbol}
-      copy_dtype_p: code_dtype_p_t;    {points to ultimate data type definition}
-      );
-    end;
-
-  code_explist_t = record              {list of expressions}
-    next_p: code_explist_p_t;          {to next expression in the list}
-    exp_p: code_exp_p_t;               {to expression for this list entry}
-    end;
+  code_expid_k_t = (                   {IDs for different types of expressions}
+    code_expid_const_k,                {constant}
+    code_expid_var_k,                  {variable or field in aggregate}
+    code_expid_func_k,                 {value of function return}
+    code_expid_set_k,                  {set}
+    code_expid_arele_k,                {values for array elements}
+    code_expid_range_k,                {range of values}
+    code_expid_op_k);                  {result of operation}
 
   code_exp_t = record                  {expression that supplies a value}
     comm_p: code_comm_p_t;             {related comments}
@@ -602,6 +540,75 @@ code_expid_op_k: (                     {result of operation}
       );
     end;
 
+  code_explist_t = record              {list of expressions}
+    next_p: code_explist_p_t;          {to next expression in the list}
+    exp_p: code_exp_p_t;               {to expression for this list entry}
+    end;
+
+  code_refmodid_k_t = (                {all the different variable modifier types}
+    code_refmodid_unpnt_k,             {pointer dereference}
+    code_refmodid_subscr_k,            {expression for next less sig subscript}
+    code_refmodid_field_k);            {field name in current aggregate}
+
+  code_refmod_t = record               {data for one variable modifier}
+    next_p: code_refmod_p_t;           {points to next modifier in chain}
+    modtyp: code_refmodid_k_t;         {what kind of modifier this is}
+    case code_refmodid_k_t of
+code_refmodid_unpnt_k: (               {dereference parent}
+      );
+code_refmodid_subscr_k: (              {next less significant subscript of array}
+      subscr_exp_p: code_exp_p_t;      {points to expression for this subscript}
+      subscr_first: boolean;           {TRUE if first subscript of set}
+      subscr_last: boolean;            {TRUE if last subscript of set}
+      );
+code_refmodid_field_k: (               {field within parent}
+      field_pos: fline_cpos_t;         {starting position in source code}
+      field_sym_p: code_symbol_p_t;    {points to symbol for this field name}
+      );
+    end;
+
+  code_refid_k_t = (                   {IDs for direct symbol reference types}
+    code_refid_var_k,                  {variable}
+    code_refid_dtype_k,                {data type}
+    code_refid_rout_k,                 {routine}
+    code_refid_const_k,                {named constant}
+    code_refid_com_k);                 {common block}
+
+  code_symref_t = record               {symbol reference}
+    sym_p: code_symbol_p_t;            {the symbol being referenced}
+    pos: fline_cpos_t;                 {starting position in source code}
+    comm_p: code_comm_p_t;             {related comments}
+    mod_p: code_refmod_p_t;            {list of modifiers applied to this symbol}
+    rwflag: code_rwflag_t;             {read/write permission for this "variable"}
+    refid: code_refid_k_t;             {ID for final resolved symbol ref type}
+    case code_refid_k_t of
+code_refid_var_k: (                    {variable}
+      var_dtype_p: code_dtype_p_t;     {points to final data type}
+      );
+code_refid_dtype_k: (                  {data type}
+      dtype_dtype_p: code_dtype_p_t;   {points to final data type}
+      );
+code_refid_rout_k: (                   {routine}
+      rout_proc_p: code_proc_p_t;      {points to template of called routine}
+      );
+code_refid_const_k: (                  {a named constant reference}
+      const_value_p: code_value_p_t;   {points to final resolved value}
+      );
+code_refid_com_k: (                    {a common block reference}
+      com_sym_p: code_symbol_p_t;      {points to final common block symbol}
+      );
+    end;
+{
+*   Procedures and their arguments and return values.
+}
+  code_argflag_k_t = (                 {individual flags for arguments to routines}
+    code_argflag_pass_unk_k,           {passing method unknown or not set yet}
+    code_argflag_pass_val_k,           {passed by value}
+    code_argflag_pass_ref_k,           {passed by reference}
+    code_argflag_dtany_k,              {any data type allowed}
+    code_argflag_dtarlen_k);           {array type, but any length of last subscript allowed}
+  code_argflag_t = set of code_argflag_k_t;
+
   code_proc_arg_t = record             {template for one procedure argument}
     next_p: code_proc_arg_p_t;         {points to data about next arg}
     comm_p: code_comm_p_t;             {related comments}
@@ -612,6 +619,10 @@ code_expid_op_k: (                     {result of operation}
     rwflag: code_rwflag_t;             {routine's read/write permission of this arg}
     flag: code_argflag_k_t;            {modifier flags}
     end;
+
+  code_procflag_k_t = (                {flags for routines}
+    code_procflag_noreturn_k);         {routine will never return to caller}
+  code_procflag_t = set of code_procflag_k_t;
 
   code_proc_t = record                 {external interface data for one procedure}
     comm_p: code_comm_p_t;             {related comments}
@@ -638,49 +649,9 @@ code_expid_op_k: (                     {result of operation}
     sym_p: code_symbol_p_t;            {point to arg symbol in actual routine}
     rwflag: code_rwflag_t;             {arg read/write permission from inside proc}
     end;
-
-  code_refmod_t = record               {data for one variable modifier}
-    next_p: code_refmod_p_t;           {points to next modifier in chain}
-    modtyp: code_refmodid_k_t;         {what kind of modifier this is}
-    case code_refmodid_k_t of
-code_refmodid_unpnt_k: (               {dereference parent}
-      );
-code_refmodid_subscr_k: (              {next less significant subscript of array}
-      subscr_exp_p: code_exp_p_t;      {points to expression for this subscript}
-      subscr_first: boolean;           {TRUE if first subscript of set}
-      subscr_last: boolean;            {TRUE if last subscript of set}
-      );
-code_refmodid_field_k: (               {field within parent}
-      field_pos: fline_cpos_t;         {starting position in source code}
-      field_sym_p: code_symbol_p_t;    {points to symbol for this field name}
-      );
-    end;
-
-  code_symref_t = record               {symbol reference}
-    sym_p: code_symbol_p_t;            {the symbol being referenced}
-    pos: fline_cpos_t;                 {starting position in source code}
-    comm_p: code_comm_p_t;             {related comments}
-    mod_p: code_refmod_p_t;            {list of modifiers applied to this symbol}
-    rwflag: code_rwflag_t;             {read/write permission for this "variable"}
-    refid: code_refid_k_t;             {ID for final resolved symbol ref type}
-    case code_refid_k_t of
-code_refid_var_k: (                    {variable}
-      var_dtype_p: code_dtype_p_t;     {points to final data type}
-      );
-code_refid_dtype_k: (                  {data type}
-      dtype_dtype_p: code_dtype_p_t;   {points to final data type}
-      );
-code_refid_rout_k: (                   {routine}
-      rout_proc_p: code_proc_p_t;      {points to template of called routine}
-      );
-code_refid_const_k: (                  {a named constant reference}
-      const_value_p: code_value_p_t;   {points to final resolved value}
-      );
-code_refid_com_k: (                    {a common block reference}
-      com_sym_p: code_symbol_p_t;      {points to final common block symbol}
-      );
-    end;
-
+{
+*   Code elements.
+}
   code_caseval_t = record              {one value of this code case to pick from}
     next_p: code_caseval_p_t;          {points to next value for this code case}
     comm_p: code_comm_p_t;             {related comments}
@@ -693,6 +664,15 @@ code_refid_com_k: (                    {a common block reference}
     vals_p: code_caseval_p_t;          {values for selecting this case}
     code_p: code_ele_p_t;              {executable code for this case}
     end;
+
+  code_incdir_k_t = (                  {loop increment direction flag}
+    code_incdir_up_k,                  {increment is positive}
+    code_incdir_down_k,                {increment is negative}
+    code_incdir_unk_k);                {increment direction is unknown}
+
+  code_iterid_k_t = (                  {ID for loop iteration type}
+    code_iterid_cnt_k,                 {counted loop}
+    code_iterid_while_k);              {loop while condition true}
 
   code_iter_t = record                 {block iteration setup}
     iterid: code_iterid_k_t;           {type of this iteration}
@@ -707,6 +687,29 @@ code_iterid_cnt_k: (                   {counted loop}
 code_iterid_while_k: (                 {loop while condition true}
       );
     end;
+
+  code_ele_k_t = (                     {IDs for each type of code element}
+    code_ele_module_k,                 {start of a grouping of routines}
+    code_ele_prog_k,                   {start of top level program}
+    code_ele_rout_k,                   {start of a routine}
+    code_ele_exec_k,                   {points to chain of executable code}
+    {
+    *   Elements only used within executable code.
+    }
+    code_ele_label_k,                  {label (GOTO target)}
+    code_ele_call_k,                   {subroutine call}
+    code_ele_assign_k,                 {assignment to a variable}
+    code_ele_goto_k,                   {unconditional transfer of control}
+    code_ele_pick_k,                   {execute one or more code cases}
+    code_ele_if_k,                     {IF ... THEN ... ELSE ... statement}
+    code_ele_block_k,                  {nested block of code}
+    code_ele_next_k,                   {to next iteration of block}
+    code_ele_exit_k,                   {end execution of block}
+    code_ele_return_k,                 {return from subroutine}
+    code_ele_alias_k,                  {block with symbol aliases applied}
+    code_ele_discard_k,                {call function, but discard its return value}
+    code_ele_write_k,                  {write string to standard output}
+    code_ele_write_eol_k);             {write end of line to standard output}
 
   code_ele_t = record                  {one code element}
     next_p: code_ele_p_t;              {points to next successive element, NIL = end}
@@ -782,7 +785,9 @@ code_ele_write_k: (                    {write string to standard output}
 code_ele_write_eol_k: (                {write end of line to standard output}
       );
     end;
-
+{
+*   Top level state and library management.
+}
   code_inicfg_t = record               {configuration for a new library use}
     mem_p: util_mem_context_p_t;       {points to parent mem context}
     symlen_max: sys_int_machine_t;     {max supported length of symbol names}
@@ -794,16 +799,15 @@ code_ele_write_eol_k: (                {write end of line to standard output}
     n_symbuck: sys_int_machine_t;      {N hash buckets in symbol tables, power of 2}
     end;
 
+  code_outcfg_t = record               {configuration specific to the output implementation}
+    int_bits: sys_int_machine_t;       {default integer size in bits, 0 undefined}
+    int_pos: fline_cpos_t;             {source code postion where defined}
+    end;
+
   code_parse_t = record                {parsing state that needs to be visible to CODE lib}
     pos: fline_cpos_t;                 {current parsing position}
     level: sys_int_machine_t;          {current block nesting level, 0 = top}
     nextlevel: sys_int_machine_t;      {lev of next statement}
-    end;
-
-  code_symtab_t = record               {data for one symbol table}
-    mem_p: util_mem_context_p_t;       {mem context for all subordinate dynamic memory}
-    parent_p: code_symbol_p_t;         {to parent symbol in name hierarchy}
-    hash: string_hash_handle_t;        {handle to hash table symbols stored in}
     end;
 
   code_p_t = ^code_t;
@@ -813,8 +817,8 @@ code_ele_write_eol_k: (                {write end of line to standard output}
     parse: code_parse_t;               {parsing state visible to CODE lib}
     comm_block_p: code_comm_p_t;       {to current hiearchy of block comments}
     comm_eol_p: code_comm_p_t;         {to latest end of line comment}
-    sym_root: code_symtab_t;           {root scope symbol table}
-    scope_p: code_symtab_p_t;          {to symbol table for new symbols in curr scope}
+    scope_p: code_scope_p_t;           {to current scope}
+    scope_root_p: code_scope_p_t;      {to root scope}
     memsym_p: code_symtab_p_t;         {saved pointer to memory and adr space symbol table}
     end;
 {
@@ -858,6 +862,12 @@ procedure code_adrsp_new (             {create a new named address space}
 
 procedure code_alloc_global (          {alloc mem under CODE context, can't individually dealloc}
   in out  code: code_t;                {CODE library use state}
+  in      size: sys_int_adr_t;         {amount of memory to allocate, bytes}
+  out     new_p: univ_ptr);            {returned pointer to the new memory}
+  val_param; extern;
+
+procedure code_alloc_symtab (          {alloc perm mem from symbol table context}
+  in out  symtab: code_symtab_t;       {context to allocate memory from}
   in      size: sys_int_adr_t;         {amount of memory to allocate, bytes}
   out     new_p: univ_ptr);            {returned pointer to the new memory}
   val_param; extern;
@@ -966,13 +976,29 @@ procedure code_memsym_show_all (       {show details of all mem/adr symbols}
   in      indent: sys_int_machine_t);  {number of spaces to indent all output}
   val_param; extern;
 
-procedure code_scope_new (             {create new symbol scope, make it current}
-  in out  code: code_t;                {CODE library use state}
-  in out  parsym: code_symbol_t);      {parent symbol new scope will be under}
+procedure code_scope_push (            {create new subordinate scope, make curr}
+  in out  code: code_t);               {CODE library use state}
   val_param; extern;
 
 procedure code_scope_pop (             {pop back to parent scope}
   in out  code: code_t);               {CODE library use state}
+  val_param; extern;
+
+procedure code_sym_curr (              {create symbol in current scope}
+  in out  code: code_t;                {CODE library use state}
+  in      name: univ string_var_arg_t; {name of symbol to create}
+  in      symtype: code_symtype_k_t;   {type of symbol to create}
+  out     sym_p: code_symbol_p_t;      {returned pointer to new symbol}
+  out     stat: sys_err_t);            {completion status}
+  val_param; extern;
+
+procedure code_sym_inscope (           {create symbol in specific scope}
+  in out  code: code_t;                {CODE library use state}
+  in      name: univ string_var_arg_t; {name of symbol to create}
+  in      symtype: code_symtype_k_t;   {type of symbol to create}
+  in out  scope: code_scope_t;         {scope to create the symbol within}
+  out     sym_p: code_symbol_p_t;      {returned pointer to new symbol}
+  out     stat: sys_err_t);            {completion status}
   val_param; extern;
 
 procedure code_sym_lookup (            {look up symbol name in a symbol table}
@@ -980,6 +1006,11 @@ procedure code_sym_lookup (            {look up symbol name in a symbol table}
   in      name: univ string_var_arg_t; {name of symbol to look up}
   in      symtab: code_symtab_t;       {symbol table to look up name in}
   out     sym_p: code_symbol_p_t);     {returned pointer to symbol, NIL if not found}
+  val_param; extern;
+
+function code_sym_mem (                {get memory context symbol is allocated in}
+  in      sym: code_symbol_t)          {symbol to get memory context of}
+  :util_mem_context_p_t;               {retrurned pointer to symbol's mem context}
   val_param; extern;
 
 procedure code_sym_new (               {create new symbol, err if exists}
@@ -990,21 +1021,22 @@ procedure code_sym_new (               {create new symbol, err if exists}
   out     stat: sys_err_t);            {completion status}
   val_param; extern;
 
-procedure code_sym_new_currscope (     {create new symbol in curr scope, err if exists}
+function code_symtab_exist_scope (     {make sure symbol table in scope exists}
   in out  code: code_t;                {CODE library use state}
-  in      name: univ string_var_arg_t; {name of symbol to create}
-  out     sym_p: code_symbol_p_t;      {returned pointer to new symbol}
-  out     stat: sys_err_t);            {completion status}
+  in out  scope: code_scope_t;         {scope symbol table will be within}
+  in out  symtab_p: code_symtab_p_t)   {to table, will not be NIL}
+  :code_symtab_p_t;                    {pointer to the symbol table}
   val_param; extern;
 
-procedure code_symtab_init (           {initialize symbol table descriptor}
+procedure code_symtab_new_sym (        {create symbol table subordinate to a symbol}
   in out  code: code_t;                {CODE library use state}
-  in out  mem: util_mem_context_t;     {parent mem context, will create subordinate}
-  out     symtab: code_symtab_t);      {symbol table to initialize}
+  in out  sym: code_symbol_t;          {parent symbol for the new symbol table}
+  in out  symtab_p: code_symtab_p_t);  {to table, will not be NIL}
   val_param; extern;
 
-procedure code_symtab_new (            {create new subordinate symbol table}
+function code_symtab_symtype (         {get symbol table for particular symbol type}
   in out  code: code_t;                {CODE library use state}
-  in out  parsym: code_symbol_t;       {parent symbol new table subordinate to}
-  out     symtab_p: code_symtab_p_t);  {pointer to new symbol table}
+  in out  scope: code_scope_t;         {scope the symbol is within}
+  in      symtype: code_symtype_k_t)   {type of symbol}
+  :code_symtab_p_t;                    {pointer to the symbol table, will exist}
   val_param; extern;

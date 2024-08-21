@@ -64,11 +64,9 @@ begin
     sym_p,                             {returned pointer to new symbol}
     stat);
   if sys_error(stat) then return;
-
   sym_p^.symtype := code_symtype_memory_k; {new symbol is for a memory}
-  util_mem_grab (                      {alloc mem for memory descriptor}
-    sizeof(mem_p^), code.memsym_p^.mem_p^, false, mem_p);
-  util_mem_grab_err_bomb (mem_p, sizeof(mem_p^));
+
+  code_alloc_symtab (code.memsym_p^, sizeof(mem_p^), mem_p);
   sym_p^.memory_p := mem_p;            {point symbol to new memory descriptor}
 
   mem_p^.sym_p := sym_p;
@@ -151,11 +149,9 @@ begin
     sym_p,                             {returned pointer to new symbol}
     stat);
   if sys_error(stat) then return;
-
   sym_p^.symtype := code_symtype_memreg_k; {new symbol is for a memory region}
-  util_mem_grab (                      {alloc mem for memregion descriptor}
-    sizeof(memreg_p^), code.memsym_p^.mem_p^, false, memreg_p);
-  util_mem_grab_err_bomb (memreg_p, sizeof(memreg_p^));
+
+  code_alloc_symtab (code.memsym_p^, sizeof(memreg_p^), memreg_p);
   sym_p^.memreg_p := memreg_p;         {point symbol to new memory descriptor}
 
   memreg_p^.next_p := nil;             {init the memory region descriptor}
@@ -247,11 +243,9 @@ begin
     sym_p,                             {returned pointer to new symbol}
     stat);
   if sys_error(stat) then return;
-
   sym_p^.symtype := code_symtype_adrsp_k; {new symbol is address space}
-  util_mem_grab (                      {alloc mem for adr space descriptor}
-    sizeof(adrsp_p^), code.memsym_p^.mem_p^, false, adrsp_p);
-  util_mem_grab_err_bomb (adrsp_p, sizeof(adrsp_p^));
+
+  code_alloc_symtab (code.memsym_p^, sizeof(adrsp_p^), adrsp_p);
   sym_p^.adrsp_p := adrsp_p;           {point symbol to new adr space descriptor}
 
   adrsp_p^.sym_p := sym_p;
@@ -335,9 +329,7 @@ begin
     stat);
   if sys_error(stat) then return;
 
-  util_mem_grab (                      {alloc mem for address space descriptor}
-    sizeof(adrreg_p^), code.memsym_p^.mem_p^, false, adrreg_p);
-  util_mem_grab_err_bomb (adrreg_p, sizeof(adrreg_p^));
+  code_alloc_symtab (code.memsym_p^, sizeof(adrreg_p^), adrreg_p);
 
   sym_p^.symtype := code_symtype_adrreg_k; {new symbol is for a address region}
   sym_p^.adrreg_p := adrreg_p;

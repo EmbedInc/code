@@ -64,6 +64,8 @@ begin
   fline_cpos_init (sym_p^.pos);        {init to no source code position}
   sym_p^.comm_p := nil;                {init to no comments apply}
   sym_p^.symtab_p := addr(table);      {save pointer to symbol table sym is in}
+  sym_p^.subscope_p := nil;            {this symbol doesn't define a scope}
+  sym_p^.subtab_p := nil;              {this symbol doesn't have subordinate table}
   sym_p^.flags := [];                  {init to no modifier flags}
   sym_p^.app_p := nil;                 {init pointer private to app}
   sym_p^.symtype := code_symtype_undef_k; {init symbol to undefined}

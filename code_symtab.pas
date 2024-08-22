@@ -51,7 +51,7 @@ function code_symtab_exist_scope (     {make sure symbol table in scope exists}
 
 begin
   if symtab_p = nil then begin         {doesn't already exist, create ?}
-    code_alloc_global (code, sizeof(symtab_p^), symtab_p); {alloc sym tab memory}
+    code_alloc_global (code, sizeof(symtab_p^), symtab_p); {alloc sym table mem}
     util_mem_grab_err_bomb (symtab_p, sizeof(symtab_p^));
     symtab_p^.scope_p := addr(scope);  {point to scope this symbol table within}
     symtab_p^.parsym_p := nil;         {not a sub-symbol table}
@@ -71,13 +71,27 @@ begin
 procedure code_symtab_new_sym (        {create symbol table subordinate to a symbol}
   in out  code: code_t;                {CODE library use state}
   in out  sym: code_symbol_t;          {parent symbol for the new symbol table}
-  in out  symtab_p: code_symtab_p_t);  {to table, will not be NIL}
+  out     symtab_p: code_symtab_p_t);  {to the new symbol table}
   val_param;
+
+const
+  max_msg_parms = 1;                   {max parameters we can pass to a message}
 
 var
   mem_p: util_mem_context_p_t;         {to mem context symbol is allocated in}
+  msg_parm:                            {parameter references for messages}
+    array[1..max_msg_parms] of sys_parm_msg_t;
 
 begin
+  if sym.subtab_p <> nil then begin    {symbol already has a subordinate sym table ?}
+    sys_msg_parm_vstr (msg_parm[1], sym.name_p^);
+    code_err_atline (code, 'code', 'err_symtab_subtab', msg_parm, 1);
+    end;
+  if sym.subscope_p <> nil then begin  {symbol already has a subordinate scope ?}
+    sys_msg_parm_vstr (msg_parm[1], sym.name_p^);
+    code_err_atline (code, 'code', 'err_symtab_subscope', msg_parm, 1);
+    end;
+
   code_alloc_symtab (                  {allocate mem for new sym table descriptor}
     sym.symtab_p^,                     {parent sym table to alloc memory under}
     sizeof(symtab_p^),                 {amount of memory to allocate}
@@ -85,8 +99,10 @@ begin
 
   symtab_p^.scope_p := nil;            {new table not at scope level}
   symtab_p^.parsym_p := addr(sym);     {set pointer to parent symbol}
-  mem_p := code_sym_mem(sym);          {get symbol's memory contect}
+  mem_p := code_sym_mem(sym);          {get symbol's memory context}
   symtab_create (code, symtab_p^, mem_p^); {create symbol names hash table}
+
+  sym.subtab_p := symtab_p;            {this symbol now has subordinate sym table}
   end;
 {
 ********************************************************************************
@@ -112,9 +128,9 @@ code_symtype_scope_k: tab_pp := addr(scope.symtab_scope_p);
 code_symtype_const_k: tab_pp := addr(scope.symtab_vcon_p);
 code_symtype_dtype_k: tab_pp := addr(scope.symtab_dtype_p);
 code_symtype_var_k: tab_pp := addr(scope.symtab_vcon_p);
-code_symtype_proc_k: tab_pp := addr(scope.symtab_rout_p);
-code_symtype_prog_k: tab_pp := addr(scope.symtab_rout_p);
-code_symtype_module_k: tab_pp := addr(scope.symtab_rout_p);
+code_symtype_proc_k: tab_pp := addr(scope.symtab_scope_p);
+code_symtype_prog_k: tab_pp := addr(scope.symtab_scope_p);
+code_symtype_module_k: tab_pp := addr(scope.symtab_scope_p);
 code_symtype_label_k: tab_pp := addr(scope.symtab_label_p);
 otherwise
   tab_pp := addr(scope.symtab_other_p);

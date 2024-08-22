@@ -34,3 +34,13 @@ msg err10
 msg err11
   lan english -def
     Symbol "%p1s" already exists, defined on line %p2i of file "%p3s".
+
+msg err_atline
+  lan english -def
+    The error was encountered at:
+msg err_sym_subscope
+  lan english -def
+    The symbol "%p1s" already has a subordinate scope.
+msg err_sym_subtab
+  lan english -def
+    The symbol "%p1s" already has a subordinate symbol table.

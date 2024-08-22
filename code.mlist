@@ -1,8 +1,10 @@
 code_alloc.obj
 code_comm.obj
+code_err.obj
 code_errset.obj
 code_lib.obj
 code_memadr.obj
 code_scope.obj
+code_show.obj
 code_sym.obj
 code_symtab.obj

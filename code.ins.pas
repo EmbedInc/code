@@ -334,6 +334,8 @@ code_typid_pnt_k: (                    {data type is a pointer}
     pos: fline_cpos_t;                 {position of definition in source code}
     comm_p: code_comm_p_t;             {related comments}
     symtab_p: code_symtab_p_t;         {to symbol table this symbol is in}
+    subscope_p: code_scope_p_t;        {to subordinate scope, if any}
+    subtab_p: code_symtab_p_t;         {to subordinate symbol table, if any}
     flags: code_symflag_t;             {set of individual flags}
     app_p: univ_ptr;                   {arbitrary pointer to app-specific data}
     symtype: code_symtype_k_t;         {symbol type, use CODE_SYMTYPE_xxx_K}
@@ -341,7 +343,6 @@ code_typid_pnt_k: (                    {data type is a pointer}
 code_symtype_undef_k: (                {symbol not defined yet, only name known}
       );
 code_symtype_scope_k: (                {symbol is sub-scope within parent scope}
-      scope_scope_p: code_scope_p_t;   {scope this symbol represents}
       );
 code_symtype_memory_k: (               {memory}
       memory_p: code_memory_p_t;       {points to memory descriptor}
@@ -389,7 +390,6 @@ code_symtype_com_k: (                  {symbol is a common block name}
       com_memreg_p: code_memreg_ent_p_t; {points to list of mem regions block may be in}
       );
 code_symtype_module_k: (               {symbol is a module name}
-      module_scope_p: code_scope_p_t;  {to scope inside the module}
       );
 code_symtype_label_k: (                {symbol is a statement label}
       label_ele_p: code_ele_p_t;       {points to code element for the label}
@@ -410,10 +410,9 @@ code_symtype_label_k: (                {symbol is a statement label}
   code_scope_t = record                {data about a scope or namespace}
     parscope_p: code_scope_p_t;        {to parent scope, NIL at root}
     symbol_p: code_symbol_p_t;         {to symbol defining this scope, NIL at root}
-    symtab_scope_p: code_symtab_p_t;   {to table for subordinate scopes}
+    symtab_scope_p: code_symtab_p_t;   {to table for symbols that have subordinate scopes}
     symtab_vcon_p: code_symtab_p_t;    {to table for variables and constants}
     symtab_dtype_p: code_symtab_p_t;   {to table for data types}
-    symtab_rout_p: code_symtab_p_t;    {to table for routines}
     symtab_label_p: code_symtab_p_t;   {to table for labels}
     symtab_other_p: code_symtab_p_t;   {to table for all other symbol types}
     end;
@@ -817,8 +816,8 @@ code_ele_write_eol_k: (                {write end of line to standard output}
     parse: code_parse_t;               {parsing state visible to CODE lib}
     comm_block_p: code_comm_p_t;       {to current hiearchy of block comments}
     comm_eol_p: code_comm_p_t;         {to latest end of line comment}
+    scope_root: code_scope_t;          {root scope}
     scope_p: code_scope_p_t;           {to current scope}
-    scope_root_p: code_scope_p_t;      {to root scope}
     memsym_p: code_symtab_p_t;         {saved pointer to memory and adr space symbol table}
     end;
 {
@@ -912,6 +911,14 @@ procedure code_comm_show1 (            {show contents of single comment descript
   in      indent: sys_int_machine_t);  {number of spaces to indent all output}
   val_param; extern;
 
+procedure code_err_atline (            {show error, current loc, and bomb}
+  in out  code: code_t;                {CODE library use state}
+  in      subsys: string;              {name of subsystem, used to find message file}
+  in      msg: string;                 {message name within subsystem file}
+  in      parms: univ sys_parm_msg_ar_t; {array of parameter descriptors}
+  in      nparms: sys_int_machine_t);  {number of parameters in PARMS}
+  options (val_param, noreturn, extern);
+
 procedure code_errset_sym_exist (      {fill in STAT for symbol already exists}
   in      pos: string_hash_pos_t;      {symbol table position for existing symbol}
   out     stat: sys_err_t);            {filled in with appropriate error status}
@@ -976,11 +983,20 @@ procedure code_memsym_show_all (       {show details of all mem/adr symbols}
   in      indent: sys_int_machine_t);  {number of spaces to indent all output}
   val_param; extern;
 
-procedure code_scope_push (            {create new subordinate scope, make curr}
-  in out  code: code_t);               {CODE library use state}
+procedure code_scope_init (            {init a scope descriptor}
+  out     scope: code_scope_t);        {descriptor to initialize}
   val_param; extern;
 
 procedure code_scope_pop (             {pop back to parent scope}
+  in out  code: code_t);               {CODE library use state}
+  val_param; extern;
+
+procedure code_scope_push (            {create new subordinate scope, make curr}
+  in out  code: code_t;                {CODE library use state}
+  in out  sym: code_symbol_t);         {symbol defining the new scope}
+  val_param; extern;
+
+procedure code_show_pos (              {show the current parsing position on STDOUT}
   in out  code: code_t);               {CODE library use state}
   val_param; extern;
 
@@ -1031,7 +1047,7 @@ function code_symtab_exist_scope (     {make sure symbol table in scope exists}
 procedure code_symtab_new_sym (        {create symbol table subordinate to a symbol}
   in out  code: code_t;                {CODE library use state}
   in out  sym: code_symbol_t;          {parent symbol for the new symbol table}
-  in out  symtab_p: code_symtab_p_t);  {to table, will not be NIL}
+  out     symtab_p: code_symtab_p_t);  {to the new symbol table}
   val_param; extern;
 
 function code_symtab_symtype (         {get symbol table for particular symbol type}

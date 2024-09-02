@@ -996,6 +996,17 @@ procedure code_scope_push (            {create new subordinate scope, make curr}
   in out  sym: code_symbol_t);         {symbol defining the new scope}
   val_param; extern;
 
+procedure code_scope_show (            {show scope tree}
+  in out  code: code_t;                {CODE library use state}
+  in      scope: code_scope_t;         {the scope to show}
+  in      lev: sys_int_machine_t);     {nesting level, 0 at top}
+  val_param; extern;
+
+procedure code_show_indent (           {write leading indentation to show nesting level}
+  in out  code: code_t;                {CODE library use state}
+  in      lev: sys_int_machine_t);     {nesting level, 0 at top}
+  val_param; extern;
+
 procedure code_show_pos (              {show the current parsing position on STDOUT}
   in out  code: code_t);               {CODE library use state}
   val_param; extern;
@@ -1037,6 +1048,12 @@ procedure code_sym_new (               {create new symbol, err if exists}
   out     stat: sys_err_t);            {completion status}
   val_param; extern;
 
+procedure code_sym_show (              {show symbol and any subordinate tree}
+  in out  code: code_t;                {CODE library use state}
+  in      sym: code_symbol_t;          {symbol to show description of}
+  in      lev: sys_int_machine_t);     {nesting level, 0 at top}
+  val_param; extern;
+
 function code_symtab_exist_scope (     {make sure symbol table in scope exists}
   in out  code: code_t;                {CODE library use state}
   in out  scope: code_scope_t;         {scope symbol table will be within}
@@ -1048,6 +1065,12 @@ procedure code_symtab_new_sym (        {create symbol table subordinate to a sym
   in out  code: code_t;                {CODE library use state}
   in out  sym: code_symbol_t;          {parent symbol for the new symbol table}
   out     symtab_p: code_symtab_p_t);  {to the new symbol table}
+  val_param; extern;
+
+procedure code_symtab_show (           {show symbol table tree}
+  in out  code: code_t;                {CODE library use state}
+  in      symtab: code_symtab_t;       {symbol table to show}
+  in      lev: sys_int_machine_t);     {nesting level, 0 at top}
   val_param; extern;
 
 function code_symtab_symtype (         {get symbol table for particular symbol type}

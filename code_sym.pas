@@ -6,6 +6,7 @@ define code_sym_new;
 define code_sym_lookup;
 define code_sym_inscope;
 define code_sym_curr;
+define code_sym_show;
 %include 'code2.ins.pas';
 {
 ********************************************************************************
@@ -151,4 +152,62 @@ begin
     code.scope_p^,                     {scope to create symbol in}
     sym_p,                             {returned pointer to the new symbol}
     stat);                             {returned completion status}
+  end;
+{
+********************************************************************************
+*
+*   Subroutine CODE_SYM_SHOW (CODE, SYM, LEV)
+*
+*   Show one-line description of the symbol SYM, for debugging.  LEV is the
+*   nesting level to show the symbol at, with 0 being the top level.
+}
+procedure code_sym_show (              {show description of symbol}
+  in out  code: code_t;                {CODE library use state}
+  in      sym: code_symbol_t;          {symbol to show description of}
+  in      lev: sys_int_machine_t);     {nesting level, 0 at top}
+  val_param;
+
+begin
+  code_show_indent (code, lev);        {write leading indentation for this level}
+
+  if sym.name_p = nil                  {show symbol name}
+    then begin
+      write ('-- No Name --');
+      end
+    else begin
+      write (sym.name_p^.str:sym.name_p^.len);
+      end
+    ;
+  write (', ');
+
+  case sym.symtype of                  {which type of symbol}
+code_symtype_undef_k: write ('Undefined');
+code_symtype_scope_k: write ('Scope');
+code_symtype_memory_k: write ('Memory');
+code_symtype_memreg_k: write ('Mem region');
+code_symtype_adrsp_k: write ('Adr space');
+code_symtype_adrreg_k: write ('Adr region');
+code_symtype_const_k: write ('Constant');
+code_symtype_enum_k: write ('Enum type');
+code_symtype_dtype_k: write ('Data type');
+code_symtype_field_k: write ('Field');
+code_symtype_var_k: write ('Variable');
+code_symtype_alias_k: write ('Alias');
+code_symtype_proc_k: write ('Procedure');
+code_symtype_prog_k: write ('Program');
+code_symtype_com_k: write ('Comm block');
+code_symtype_module_k: write ('Module');
+code_symtype_label_k: write ('Label');
+otherwise
+    write ('type ', ord(sym.symtype));
+    end;
+  writeln;
+
+  if sym.subscope_p <> nil then begin  {has subordinate scope ?}
+    code_scope_show (code, sym.subscope_p^, lev + 1);
+    end;
+
+  if sym.subtab_p <> nil then begin    {has subordinate symbol table ?}
+    code_symtab_show (code, sym.subtab_p^, lev + 1);
+    end;
   end;

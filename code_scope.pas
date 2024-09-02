@@ -4,6 +4,7 @@ module code_scope;
 define code_scope_init;
 define code_scope_push;
 define code_scope_pop;
+define code_scope_show;
 %include 'code2.ins.pas';
 {
 ********************************************************************************
@@ -80,4 +81,39 @@ begin
   if code.scope_p^.parscope_p = nil then return; {no parent scope to pop to ?}
 
   code.scope_p := code.scope_p^.parscope_p; {switch to parent scope}
+  end;
+{
+********************************************************************************
+*
+*   Subroutine CODE_SCOPE_SHOW (CODE, SCOPE, LEV)
+*
+*   Show the symbols in the scope SCOPE, and the tree of subordinate scopes.
+*   LEV is the nesting level to show the symbols directly in SCOPE at.
+}
+procedure code_scope_show (            {show scope tree}
+  in out  code: code_t;                {CODE library use state}
+  in      scope: code_scope_t;         {the scope to show}
+  in      lev: sys_int_machine_t);     {nesting level, 0 at top}
+  val_param;
+
+begin
+  if scope.symtab_scope_p <> nil then begin
+    code_symtab_show (code, scope.symtab_scope_p^, lev);
+    end;
+
+  if scope.symtab_vcon_p <> nil then begin
+    code_symtab_show (code, scope.symtab_vcon_p^, lev);
+    end;
+
+  if scope.symtab_dtype_p <> nil then begin
+    code_symtab_show (code, scope.symtab_dtype_p^, lev);
+    end;
+
+  if scope.symtab_label_p <> nil then begin
+    code_symtab_show (code, scope.symtab_label_p^, lev);
+    end;
+
+  if scope.symtab_other_p <> nil then begin
+    code_symtab_show (code, scope.symtab_other_p^, lev);
+    end;
   end;

@@ -167,7 +167,13 @@ procedure code_sym_show (              {show description of symbol}
   in      lev: sys_int_machine_t);     {nesting level, 0 at top}
   val_param;
 
+var
+  tk: string_var32_t;                  {scratch token}
+  stat: sys_err_t;
+
 begin
+  tk.max := size_char(tk.str);         {init local var string}
+
   code_show_indent (code, lev);        {write leading indentation for this level}
 
   if sym.name_p = nil                  {show symbol name}
@@ -178,26 +184,103 @@ begin
       write (sym.name_p^.str:sym.name_p^.len);
       end
     ;
-  write (', ');
+  write (': ');
 
   case sym.symtype of                  {which type of symbol}
-code_symtype_undef_k: write ('Undefined');
-code_symtype_scope_k: write ('Scope');
-code_symtype_memory_k: write ('Memory');
-code_symtype_memreg_k: write ('Mem region');
-code_symtype_adrsp_k: write ('Adr space');
-code_symtype_adrreg_k: write ('Adr region');
-code_symtype_const_k: write ('Constant');
-code_symtype_enum_k: write ('Enum type');
-code_symtype_dtype_k: write ('Data type');
-code_symtype_field_k: write ('Field');
-code_symtype_var_k: write ('Variable');
-code_symtype_alias_k: write ('Alias');
-code_symtype_proc_k: write ('Procedure');
-code_symtype_prog_k: write ('Program');
-code_symtype_com_k: write ('Comm block');
-code_symtype_module_k: write ('Module');
-code_symtype_label_k: write ('Label');
+code_symtype_undef_k: begin
+    write ('Undefined');
+    end;
+code_symtype_scope_k: begin
+    write ('Scope');
+    end;
+code_symtype_memory_k: begin
+    write ('Memory');
+    if sym.memory_p <> nil then begin
+      write (' bitsadr ', sym.memory_p^.bitsadr);
+      write (' bitsdat ', sym.memory_p^.bitsdat);
+      code_show_memaccs (sym.memory_p^.accs);
+      code_show_memattr (sym.memory_p^.attr);
+      end;
+    end;
+code_symtype_memreg_k: begin
+    write ('Mem region');
+    if sym.memreg_p <> nil then begin
+      if sym.memreg_p^.mem_p <> nil then begin
+        if sym.memreg_p^.mem_p^.sym_p <> nil then begin
+          if sym.memreg_p^.mem_p^.sym_p^.name_p <> nil then begin
+            write (' in ', sym.memreg_p^.mem_p^.sym_p^.name_p^.str:sym.memreg_p^.mem_p^.sym_p^.name_p^.len);
+            end;
+          end;
+        end;
+      string_f_int_max_base (tk, sym.memreg_p^.adrst, 16, 0, [string_fi_unsig_k], stat);
+      sys_error_abort (stat, '', '', nil, 0);
+      write (' ', tk.str:tk.len);
+      string_f_int_max_base (tk, sym.memreg_p^.adren, 16, 0, [string_fi_unsig_k], stat);
+      sys_error_abort (stat, '', '', nil, 0);
+      write ('-', tk.str:tk.len);
+      code_show_memaccs (sym.memreg_p^.accs);
+      end;
+    end;
+code_symtype_adrsp_k: begin
+    write ('Adr space');
+    if sym.adrsp_p <> nil then begin
+      write (' bitsadr ', sym.adrsp_p^.bitsadr);
+      write (' bitsdat ', sym.adrsp_p^.bitsdat);
+      code_show_memaccs (sym.adrsp_p^.accs);
+      end;
+    end;
+code_symtype_adrreg_k: begin
+    write ('Adr region');
+    if sym.adrreg_p <> nil then begin
+      if sym.adrreg_p^.space_p <> nil then begin
+        if sym.adrreg_p^.space_p^.sym_p <> nil then begin
+          if sym.adrreg_p^.space_p^.sym_p^.name_p <> nil then begin
+            write (' in ', sym.adrreg_p^.space_p^.sym_p^.name_p^.str:sym.adrreg_p^.space_p^.sym_p^.name_p^.len);
+            end;
+          end;
+        end;
+      string_f_int_max_base (tk, sym.adrreg_p^.adrst, 16, 0, [string_fi_unsig_k], stat);
+      sys_error_abort (stat, '', '', nil, 0);
+      write (' ', tk.str:tk.len);
+      string_f_int_max_base (tk, sym.adrreg_p^.adren, 16, 0, [string_fi_unsig_k], stat);
+      sys_error_abort (stat, '', '', nil, 0);
+      write ('-', tk.str:tk.len);
+      code_show_memaccs (sym.adrreg_p^.accs);
+      end;
+    end;
+code_symtype_const_k: begin
+    write ('Constant');
+    end;
+code_symtype_enum_k: begin
+    write ('Enum type');
+    end;
+code_symtype_dtype_k: begin
+    write ('Data type');
+    end;
+code_symtype_field_k: begin
+    write ('Field');
+    end;
+code_symtype_var_k: begin
+    write ('Variable');
+    end;
+code_symtype_alias_k: begin
+    write ('Alias');
+    end;
+code_symtype_proc_k: begin
+    write ('Procedure');
+    end;
+code_symtype_prog_k: begin
+    write ('Program');
+    end;
+code_symtype_com_k: begin
+    write ('Comm block');
+    end;
+code_symtype_module_k: begin
+    write ('Module');
+    end;
+code_symtype_label_k: begin
+    write ('Label');
+    end;
 otherwise
     write ('type ', ord(sym.symtype));
     end;

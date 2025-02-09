@@ -1007,6 +1007,14 @@ procedure code_show_indent (           {write leading indentation to show nestin
   in      lev: sys_int_machine_t);     {nesting level, 0 at top}
   val_param; extern;
 
+procedure code_show_memaccs (          {write short names for each enabled mem access}
+  in      accs: code_memaccs_t);       {set of memory access to show}
+  val_param; extern;
+
+procedure code_show_memattr (          {write short names for each enabled mem attribute}
+  in      attr: code_memattr_t);       {set of memory attributes to show}
+  val_param; extern;
+
 procedure code_show_pos (              {show the current parsing position on STDOUT}
   in out  code: code_t);               {CODE library use state}
   val_param; extern;

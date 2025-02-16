@@ -33,6 +33,21 @@ begin
 {
 ********************************************************************************
 *
+*   Internal subroutine CODE_DEFAULTS (DEF)
+*
+*   Initialize the application runtime defaults to valid values.  The
+*   application should set these as desired later itself.
+}
+procedure code_defaults (              {init app runtime defaults to fixed values}
+  out     def: code_default_t);        {defaults to set to valid values}
+  val_param; internal;
+
+begin
+  def.int_bits := 8;                   {min required bits in default integer}
+  end;
+{
+********************************************************************************
+*
 *   Subroutine CODE_LIB_NEW (INICFG, CODE_P, STAT)
 *
 *   Start a new use of the CODE library.  CODE_P is returned pointing to the new
@@ -80,6 +95,7 @@ begin
 
   code_p^.config.symlen_max := inicfg.symlen_max;
   code_p^.config.n_symbuck := inicfg.n_symbuck;
+  code_defaults (code_p^.default);     {init app defaults to valid values}
 
   fline_cpos_init (code_p^.parse.pos);
   code_p^.parse.level := 0;
@@ -87,9 +103,16 @@ begin
 
   code_p^.comm_block_p := nil;
   code_p^.comm_eol_p := nil;
-
+  {
+  *   Set up the top level (root) scope.
+  }
   code_scope_init (code_p^.scope_root); {init the root scope}
   code_p^.scope_p := addr(code_p^.scope_root); {set the root scope as current}
+
+  discard( code_symtab_symtype (       {make sure data types symbol table exists}
+    code_p^,                           {CODE library use state}
+    code_p^.scope_root,                {scope symbol table is within}
+    code_symtype_dtype_k) );           {type of symbols the symbol table will hold}
   {
   *   Create the top level scope MEM, and then create the memories symbol table
   *   subordinate to it.

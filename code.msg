@@ -38,6 +38,12 @@ msg err11
 msg err_atline
   lan english -def
     The error was encountered at:
+msg err_sym_dtype_set
+  lan english -def
+    The data type for symbol "%p1s" is already set.
+msg err_sym_not_dtype
+  lan english -def
+    Symbol "%p1s" is not a data type.
 msg err_sym_subscope
   lan english -def
     The symbol "%p1s" already has a subordinate scope.

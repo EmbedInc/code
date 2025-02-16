@@ -1,5 +1,6 @@
 code_alloc.obj
 code_comm.obj
+code_dtype.obj
 code_err.obj
 code_errset.obj
 code_lib.obj

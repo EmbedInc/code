@@ -136,6 +136,7 @@ code_commty_eol_k: (                   {end of line comment}
   code_typid_k_t = (                   {all the different data types}
     code_typid_undef_k,                {data type was referenced, but not defined yet}
     code_typid_undefp_k,               {data type is a pointer, but not defined yet}
+    code_typid_copy_k,                 {exact copy of another data type}
     code_typid_int_k,                  {integer}
     code_typid_enum_k,                 {enumerated (names for each value)}
     code_typid_float_k,                {floating point}
@@ -148,8 +149,7 @@ code_commty_eol_k: (                   {end of line comment}
     code_typid_proc_k,                 {pointer to a procedure}
     code_typid_pnt_k,                  {pointer to data}
     code_typid_vstr_k,                 {string with curr len and max len stored}
-    code_typid_flxstr_k,               {string with extendable length}
-    code_typid_copy_k);                {exact copy of another data type}
+    code_typid_flxstr_k);              {string with extendable length}
 
   code_typflag_k_t = (                 {flags for data types}
     code_typflag_pack_k);              {pack to min bits}
@@ -159,16 +159,21 @@ code_commty_eol_k: (                   {end of line comment}
     symbol_p: code_symbol_p_t;         {points to symbol representing this data type}
     comm_p: code_comm_p_t;             {related comments}
     bits_min: sys_int_machine_t;       {minimum required bits}
-    mem_p: code_memory_t;              {memory this data structure in, if specific}
-    flags: code_typflag_k_t;           {set of individual option flags}
+    mem_p: code_memory_p_t;            {to memory this data structure in, if specific}
+    flags: code_typflag_t;             {set of individual option flags}
     typ: code_typid_k_t;               {data type ID, use CODE_TYPID_xxx_K}
     case code_typid_k_t of             {different data for each type}
 code_typid_undef_k: (                  {undefined}
       );
 code_typid_undefp_k: (                 {undefined pointer}
       );
+code_typid_copy_k: (                   {data type is a copy of another}
+      copy_symbol_p: code_symbol_p_t;  {points to copied data type symbol}
+      copy_dtype_p: code_dtype_p_t;    {points to ultimate data type definition}
+      );
 code_typid_int_k: (                    {data type is an integer}
-      signed: boolean;                 {integer is signed, not unsigned}
+      int_sign: boolean;               {integer is signed, not unsigned}
+      int_exactbits: boolean;          {must act as if exactly BITS_MIN bits wide}
       );
 code_typid_enum_k: (                   {data type is enumerated}
       enum_first_p: code_symbol_p_t;   {points to first enumerated name}
@@ -215,10 +220,6 @@ code_typid_vstr_k: (                   {string with current and max lengths}
       vstr_max: sys_int_machine_t;     {max string length}
       );
 code_typid_flxstr_k: (                 {string with extendable length}
-      );
-code_typid_copy_k: (                   {data type is a copy of another}
-      copy_symbol_p: code_symbol_p_t;  {points to copied data type symbol}
-      copy_dtype_p: code_dtype_p_t;    {points to ultimate data type definition}
       );
     end;
 {
@@ -798,21 +799,21 @@ code_ele_write_eol_k: (                {write end of line to standard output}
     n_symbuck: sys_int_machine_t;      {N hash buckets in symbol tables, power of 2}
     end;
 
-  code_outcfg_t = record               {configuration specific to the output implementation}
-    int_bits: sys_int_machine_t;       {default integer size in bits, 0 undefined}
-    int_pos: fline_cpos_t;             {source code postion where defined}
-    end;
-
   code_parse_t = record                {parsing state that needs to be visible to CODE lib}
     pos: fline_cpos_t;                 {current parsing position}
     level: sys_int_machine_t;          {current block nesting level, 0 = top}
     nextlevel: sys_int_machine_t;      {lev of next statement}
     end;
 
+  code_default_t = record              {default settings}
+    int_bits: sys_int_machine_t;       {min required bits in integer type}
+    end;
+
   code_p_t = ^code_t;
   code_t = record                      {state for one use of this library}
     mem_p: util_mem_context_p_t;       {context for all dyn mem of this CODE lib use}
     config: code_config_t;             {configuration parameters for this CODE lib instance}
+    default: code_default_t;           {various default settings}
     parse: code_parse_t;               {parsing state visible to CODE lib}
     comm_block_p: code_comm_p_t;       {to current hiearchy of block comments}
     comm_eol_p: code_comm_p_t;         {to latest end of line comment}
@@ -911,6 +912,77 @@ procedure code_comm_show1 (            {show contents of single comment descript
   in      indent: sys_int_machine_t);  {number of spaces to indent all output}
   val_param; extern;
 
+procedure code_dtype_copy (            {make COPY data type}
+  var in  orig: code_dtype_t;          {original data type to copy}
+  in out  symtab: code_symtab_t;       {alloc new mem under context of this sym table}
+  out     copy_p: code_dtype_p_t);     {returned pointer to the COPY data type}
+  val_param; extern;
+
+procedure code_dtype_find (            {find data type in curr scopes hierarchy}
+  in out  code: code_t;                {CODE library use state}
+  in      name: univ string_var_arg_t; {name of the data type}
+  out     sym_p: code_symbol_p_t;      {to dtype symbol, NIL on not found}
+  out     dtype_p: code_dtype_p_t);    {to final resolved dtype descriptor}
+  val_param; extern;
+
+procedure code_dtype_init (            {initialize a data type descriptor}
+  in out  dtype: code_dtype_t);        {descriptor to initialize to default or benign}
+  val_param; extern;
+
+procedure code_dtype_int_find (        {find or make base integer data type}
+  in out  code: code_t;                {CODE library use state}
+  in      template: code_dtype_t;      {template integer data type, must not be copy}
+  out     dtype_p: code_dtype_p_t);    {returned pointer to INT data type in root scope}
+  val_param; extern;
+
+procedure code_dtype_int_gnam (        {make generic name of integer data type}
+  in out  code: code_t;                {CODE library use state}
+  in      dtype: code_dtype_t;         {integer data type to make generic name of}
+  in out  name: univ string_var_arg_t); {returned generic name}
+  val_param; extern;
+
+procedure code_dtype_new (             {create new data type, connect to existing symbol}
+  in out  code: code_t;                {CODE library use state}
+  in out  sym: code_symbol_t);         {sym to connect data type to, must not already be set}
+  val_param; extern;
+
+procedure code_dtype_resolve (         {resolve absolute data type}
+  var in  dtype: code_dtype_t;         {dtype to resolve final type of}
+  out     final_p: code_dtype_p_t);    {returned pointer to final (not copy) dtype}
+  val_param; extern;
+
+procedure code_dtype_sym_new (         {new data type symbol in curr scope}
+  in out  code: code_t;                {CODE library use state}
+  in      name: univ string_var_arg_t; {name of data type to create}
+  out     sym_p: code_symbol_p_t);     {to new data type symbol, NIL on error}
+  val_param; extern;
+
+procedure code_dtype_sym_new_inscope ( {new dtype sym in specific scope, err if exists}
+  in out  code: code_t;                {CODE library use state}
+  in      name: univ string_var_arg_t; {name of data type to create}
+  in out  scope: code_scope_t;         {scope to create the data type within}
+  out     sym_p: code_symbol_p_t);     {to new data type symbol, NIL on error}
+  val_param; extern;
+
+procedure code_dtype_sym_new_intable ( {new dtype sym in specific sym table, err if exists}
+  in out  code: code_t;                {CODE library use state}
+  in      name: univ string_var_arg_t; {name of data type to create}
+  in out  symtab: code_symtab_t;       {symbol table to add the data type to}
+  out     sym_p: code_symbol_p_t);     {to new data type symbol, NIL on error}
+  val_param; extern;
+
+procedure code_dtype_sym_resolve (     {resolve dtype sym to final dtype descriptor}
+  in out  code: code_t;                {CODE library use state}
+  in      sym: code_symbol_t;          {data type symbol to resolve final type of}
+  out     dtype_p: code_dtype_p_t);    {to final real (not copy) data type, NIL on not set}
+  val_param; extern;
+
+procedure code_dtype_sym_set (         {set dtype reference in symbol}
+  in out  code: code_t;                {CODE library use state}
+  in out  sym: code_symbol_t;          {symbol to set dtype in, err if already set}
+  in      template: code_dtype_t);     {template data type}
+  val_param; extern;
+
 procedure code_err_atline (            {show error, current loc, and bomb}
   in out  code: code_t;                {CODE library use state}
   in      subsys: string;              {name of subsystem, used to find message file}
@@ -918,6 +990,15 @@ procedure code_err_atline (            {show error, current loc, and bomb}
   in      parms: univ sys_parm_msg_ar_t; {array of parameter descriptors}
   in      nparms: sys_int_machine_t);  {number of parameters in PARMS}
   options (val_param, noreturn, extern);
+
+procedure code_err_atline_check (      {bomb on error, continue otherwise}
+  in out  code: code_t;                {CODE library use state}
+  in      stat: sys_err_t;             {error status, only bomb if indicates error}
+  in      subsys: string;              {name of subsystem, used to find message file}
+  in      msg: string;                 {message name within subsystem file}
+  in      parms: univ sys_parm_msg_ar_t; {array of parameter descriptors}
+  in      nparms: sys_int_machine_t);  {number of parameters in PARMS}
+  val_param; extern;
 
 procedure code_errset_sym_exist (      {fill in STAT for symbol already exists}
   in      pos: string_hash_pos_t;      {symbol table position for existing symbol}
@@ -1045,7 +1126,7 @@ procedure code_sym_lookup (            {look up symbol name in a symbol table}
 
 function code_sym_mem (                {get memory context symbol is allocated in}
   in      sym: code_symbol_t)          {symbol to get memory context of}
-  :util_mem_context_p_t;               {retrurned pointer to symbol's mem context}
+  :util_mem_context_p_t;               {pointer to symbol's mem context}
   val_param; extern;
 
 procedure code_sym_new (               {create new symbol, err if exists}
@@ -1062,17 +1143,21 @@ procedure code_sym_show (              {show symbol and any subordinate tree}
   in      lev: sys_int_machine_t);     {nesting level, 0 at top}
   val_param; extern;
 
-function code_symtab_exist_scope (     {make sure symbol table in scope exists}
+procedure code_symtab_exist_scope (    {make sure symbol table in scope exists}
   in out  code: code_t;                {CODE library use state}
   in out  scope: code_scope_t;         {scope symbol table will be within}
-  in out  symtab_p: code_symtab_p_t)   {to table, will not be NIL}
-  :code_symtab_p_t;                    {pointer to the symbol table}
+  in out  symtab_p: code_symtab_p_t);  {symbol table pointer in scope, filled in if NIL}
   val_param; extern;
 
 procedure code_symtab_new_sym (        {create symbol table subordinate to a symbol}
   in out  code: code_t;                {CODE library use state}
   in out  sym: code_symbol_t;          {parent symbol for the new symbol table}
   out     symtab_p: code_symtab_p_t);  {to the new symbol table}
+  val_param; extern;
+
+function code_symtab_mem (             {get memory context of a symbol table}
+  in      symtab: code_symtab_t)       {symbol table to get memory context of}
+  :util_mem_context_p_t;               {pointer to symbol table's mem context}
   val_param; extern;
 
 procedure code_symtab_show (           {show symbol table tree}

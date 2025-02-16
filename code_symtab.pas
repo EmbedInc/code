@@ -5,6 +5,7 @@ define code_symtab_exist_scope;
 define code_symtab_new_sym;
 define code_symtab_symtype;
 define code_symtab_show;
+define code_symtab_mem;
 %include 'code2.ins.pas';
 {
 ********************************************************************************
@@ -33,21 +34,17 @@ begin
 {
 ********************************************************************************
 *
-*   Function CODE_SYMTAB_EXIST_SCOPE (CODE, SCOPE, SYMTAB_P)
+*   Subroutine CODE_SYMTAB_EXIST_SCOPE (CODE, SCOPE, SYMTAB_P)
 *
 *   Make sure a symbol table within a scope exists.  Nothing is done if the
 *   symbol table already exists.  SYMTAB_P is the pointer to the symbol table
 *   within the scope SCOPE.  A new symbol table will be created if SYMTAB_P is
 *   originally NIL.  SYMTAB_P is always non-NIL on return.
-*
-*   The function value is the pointer to the symbol table, the same value that
-*   is returned in SYMTAB_P.
 }
-function code_symtab_exist_scope (     {make sure symbol table in scope exists}
+procedure code_symtab_exist_scope (    {make sure symbol table in scope exists}
   in out  code: code_t;                {CODE library use state}
   in out  scope: code_scope_t;         {scope symbol table will be within}
-  in out  symtab_p: code_symtab_p_t)   {to table, will not be NIL}
-  :code_symtab_p_t;                    {pointer to the symbol table}
+  in out  symtab_p: code_symtab_p_t);  {symbol table pointer in scope, filled in if NIL}
   val_param;
 
 begin
@@ -58,8 +55,6 @@ begin
     symtab_p^.parsym_p := nil;         {not a sub-symbol table}
     symtab_create (code, symtab_p^, code.mem_p^); {create the symbol names hash table}
     end;
-
-  code_symtab_exist_scope := symtab_p; {return pointer to the symbol table}
   end;
 {
 ********************************************************************************
@@ -137,8 +132,8 @@ otherwise
   tab_pp := addr(scope.symtab_other_p);
   end;
 
-  code_symtab_symtype :=               {return pointer to selected symbol table}
-    code_symtab_exist_scope (code, scope, tab_pp^);
+  code_symtab_exist_scope (code, scope, tab_pp^); {make sure symbol table exists}
+  code_symtab_symtype := tab_pp^;      {return pointer to the symbol table}
   end;
 {
 ********************************************************************************
@@ -169,4 +164,20 @@ begin
     code_sym_show (code, sym_p^, lev); {show this symbol}
     string_hash_pos_next (pos, found); {advance to next entry in table}
     end;
+  end;
+{
+********************************************************************************
+*
+*   Function CODE_SYMTAB_MEM (SYMTAB)
+*
+*   Get the memory context used by the symbol table SYMTAB.  All symbols of the
+*   symbol table are allocated under this context.
+}
+function code_symtab_mem (             {get memory context of a symbol table}
+  in      symtab: code_symtab_t)       {symbol table to get memory context of}
+  :util_mem_context_p_t;               {pointer to symbol table's mem context}
+  val_param;
+
+begin
+  code_symtab_mem := symtab.hash^.mem_p;
   end;

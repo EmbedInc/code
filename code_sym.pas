@@ -169,7 +169,11 @@ procedure code_sym_show (              {show description of symbol}
 
 var
   tk: string_var32_t;                  {scratch token}
+  dt_p: code_dtype_p_t;                {scratch pointer to data type}
   stat: sys_err_t;
+
+label
+  done_sytype;
 
 begin
   tk.max := size_char(tk.str);         {init local var string}
@@ -255,35 +259,96 @@ code_symtype_enum_k: begin
     write ('Enum type');
     end;
 code_symtype_dtype_k: begin
-    write ('Data type');
-    end;
+    write ('dtype');
+    dt_p := sym.dtype_dtype_p;
+    if dt_p = nil then goto done_sytype;
+    write (' bits ', dt_p^.bits_min);
+    if code_typflag_pack_k in dt_p^.flags then begin
+      writeln (' pack');
+      end;
+    case dt_p^.typ of
+code_typid_undef_k: write (' UNDEF');
+code_typid_undefp_k: write (' UNDEF');
+code_typid_copy_k: begin
+        write (' COPY');
+        if
+            (dt_p^.copy_symbol_p <> nil) and then
+            (dt_p^.copy_symbol_p^.name_p <> nil)
+            then begin
+          write (' of ', dt_p^.copy_symbol_p^.name_p^.str:dt_p^.copy_symbol_p^.name_p^.len);
+          end;
+        end;
+code_typid_int_k: begin
+        write (' INT');
+        if dt_p^.int_sign then write (' signed');
+        if dt_p^.int_exactbits then write (' X');
+        end;
+code_typid_enum_k: begin
+        write (' ENUM');
+        end;
+code_typid_float_k: begin
+        write (' FLOAT');
+        end;
+code_typid_bool_k: begin
+        write (' BOOL');
+        end;
+code_typid_char_k: begin
+        write (' CHAR');
+        end;
+code_typid_agg_k: begin
+        write (' AGG');
+        end;
+code_typid_array_k: begin
+        write (' ARRAY');
+        end;
+code_typid_set_k: begin
+        write (' SET');
+        end;
+code_typid_range_k: begin
+        write (' RANGE');
+        end;
+code_typid_proc_k: begin
+        write (' PROC');
+        end;
+code_typid_pnt_k: begin
+        write (' PNT');
+        end;
+code_typid_vstr_k: begin
+        write (' VSTR');
+        end;
+code_typid_flxstr_k: begin
+        write (' FLXSTR');
+        end;
+      end;                             {end of which data type cases}
+    end;                               {end of data type symbol case}
 code_symtype_field_k: begin
     write ('Field');
     end;
 code_symtype_var_k: begin
-    write ('Variable');
+    write ('Var');
     end;
 code_symtype_alias_k: begin
     write ('Alias');
     end;
 code_symtype_proc_k: begin
-    write ('Procedure');
+    write ('Proc');
     end;
 code_symtype_prog_k: begin
-    write ('Program');
+    write ('Prog');
     end;
 code_symtype_com_k: begin
-    write ('Comm block');
+    write ('Commblk');
     end;
 code_symtype_module_k: begin
-    write ('Module');
+    write ('Mod');
     end;
 code_symtype_label_k: begin
-    write ('Label');
+    write ('Lab');
     end;
 otherwise
     write ('type ', ord(sym.symtype));
     end;
+done_sytype:                           {done writing info for this symbol type}
   writeln;
 
   if sym.subscope_p <> nil then begin  {has subordinate scope ?}

@@ -241,6 +241,7 @@ otherwise
       sym.dtype_dtype_p := dtype_p;
       end
     ;
+  sym.dtype_dtype_p^.symbol_p := addr(sym); {link new dtype to its symbol}
   end;
 {
 ********************************************************************************
@@ -275,6 +276,7 @@ begin
 
   code_alloc_symtab (sym.symtab_p^, sizeof(dtype_p^), dtype_p); {make new descriptor}
   code_dtype_init (dtype_p^);          {initialize it to valid values}
+  dtype_p^.symbol_p := addr(sym);      {point data type back to its symbol}
   sym.dtype_dtype_p := dtype_p;        {link symbol to new data type}
   end;
 {
@@ -425,6 +427,7 @@ begin
       code, name, symtab_p^, sym_p);
     code_dtype_new (code, sym_p^);     {create new data type, link to symbol}
     sym_p^.dtype_dtype_p^ := template; {fill in the integer data type descriptor}
+    sym_p^.dtype_dtype_p^.symbol_p := sym_p; {point new dtype back to its symbol}
     end;
 
   dtype_p := sym_p^.dtype_dtype_p;     {return pointer to the data type descriptor}

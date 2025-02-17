@@ -265,8 +265,14 @@ code_typid_pnt_k: (                    {data type is a pointer}
 *   each type in a scope.  Scopes are tree-structured, starting from the root
 *   scope.
 }
-  code_symtype_k_t = (                 {all the different symbol types}
-    code_symtype_undef_k,              {symbol is known, but not defined yet}
+  {
+  *   WARNING: Module CODE_SYMTYPE contains a table of text names for each
+  *   symbol type.  This table must be updated if CODE_SYMTYPE_K_T is changed.
+  }
+  code_symtype_k_t = (                 {symbol type IDs, update CODE_SYMTYPE if changed}
+    code_symtype_invalid_k,            {invalid, not used on real symbol}
+    code_symtype_unk_k,                {unknown, not used on real symbol}
+    code_symtype_undef_k,              {symbol exists, but not defined yet}
     code_symtype_scope_k,              {sub-scope within parent scope}
     code_symtype_memory_k,             {memory}
     code_symtype_memreg_k,             {memory region}
@@ -1171,4 +1177,14 @@ function code_symtab_symtype (         {get symbol table for particular symbol t
   in out  scope: code_scope_t;         {scope the symbol is within}
   in      symtype: code_symtype_k_t)   {type of symbol}
   :code_symtab_p_t;                    {pointer to the symbol table, will exist}
+  val_param; extern;
+
+function code_symtype_f_name (         {get the symbol type from the type name}
+  in      tyname: univ string_var_arg_t) {symbol type name, case-insensitive}
+  :code_symtype_k_t;                   {symbol type ID, INVALID when unrecognized}
+  val_param; extern;
+
+procedure code_symtype_t_name (        {get symbol type name from symbol type ID}
+  in      symtype: code_symtype_k_t;   {symbol type ID}
+  in out  name: univ string_var_arg_t); {returned symbol type name}
   val_param; extern;

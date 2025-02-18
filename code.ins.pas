@@ -289,6 +289,7 @@ code_typid_pnt_k: (                    {data type is a pointer}
     code_symtype_com_k,                {common block}
     code_symtype_module_k,             {name of separately compiled source module}
     code_symtype_label_k);             {label (GOTO target)}
+  code_symtype_t = set of code_symtype_k_t;
 
   code_symflag_k_t = (                 {independent one bit flags for each symbol}
     code_symflag_def_k,                {symbol is defined, not just referenced}
@@ -1112,6 +1113,14 @@ procedure code_sym_curr (              {create symbol in current scope}
   in      symtype: code_symtype_k_t;   {type of symbol to create}
   out     sym_p: code_symbol_p_t;      {returned pointer to new symbol}
   out     stat: sys_err_t);            {completion status}
+  val_param; extern;
+
+procedure code_sym_find (              {find matching symbol in specific scope}
+  in out  code: code_t;                {CODE library use state}
+  in      name: univ string_var_arg_t; {name of symbol to find}
+  in      scope: code_scope_t;         {scope to look for the symbol in}
+  in      sytypes: code_symtype_t;     {allowable symbol types}
+  out     sym_p: code_symbol_p_t);     {to found symbol, NIL = not found}
   val_param; extern;
 
 procedure code_sym_inscope (           {create symbol in specific scope}

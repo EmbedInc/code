@@ -8,5 +8,6 @@ code_memadr.obj
 code_scope.obj
 code_show.obj
 code_sym.obj
+code_sym_find.obj
 code_symtab.obj
 code_symtype.obj

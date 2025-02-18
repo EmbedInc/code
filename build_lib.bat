@@ -19,6 +19,7 @@ call src_pas %srcdir% %libname%_memadr
 call src_pas %srcdir% %libname%_scope
 call src_pas %srcdir% %libname%_show
 call src_pas %srcdir% %libname%_sym
+call src_pas %srcdir% %libname%_sym_find
 call src_pas %srcdir% %libname%_symtab
 call src_pas %srcdir% %libname%_symtype
 

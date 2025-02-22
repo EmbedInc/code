@@ -921,8 +921,7 @@ procedure code_comm_show1 (            {show contents of single comment descript
 
 procedure code_dtype_copy (            {make COPY data type}
   var in  orig: code_dtype_t;          {original data type to copy}
-  in out  symtab: code_symtab_t;       {alloc new mem under context of this sym table}
-  out     copy_p: code_dtype_p_t);     {returned pointer to the COPY data type}
+  out     copy: code_dtype_t);         {will be filled in as copy of ORIG}
   val_param; extern;
 
 procedure code_dtype_find (            {find data type in curr scopes hierarchy}
@@ -948,7 +947,19 @@ procedure code_dtype_int_gnam (        {make generic name of integer data type}
   in out  name: univ string_var_arg_t); {returned generic name}
   val_param; extern;
 
-procedure code_dtype_new (             {create new data type, connect to existing symbol}
+procedure code_dtype_new_intable (     {create and init new dtype in specific sym table}
+  in out  code: code_t;                {CODE library use state}
+  in out  symtab: code_symtab_t;       {symbol table to add the data type to}
+  out     dtype_p: code_dtype_p_t);    {to newly created data type, initialized}
+  val_param; extern;
+
+procedure code_dtype_new_inscope (     {create and init new dtype in specific scope}
+  in out  code: code_t;                {CODE library use state}
+  in out  scope: code_scope_t;         {scope to create the data type within}
+  out     dtype_p: code_dtype_p_t);    {to newly created data type, initialized}
+  val_param; extern;
+
+procedure code_dtype_new_sym (         {create new data type, connect to existing symbol}
   in out  code: code_t;                {CODE library use state}
   in out  sym: code_symbol_t);         {sym to connect data type to, must not already be set}
   val_param; extern;

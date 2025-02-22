@@ -3,12 +3,14 @@
 module code_dtype;
 define code_dtype_init;
 define code_dtype_resolve;
+define code_dtype_new_intable;
+define code_dtype_new_inscope;
+define code_dtype_new_sym;
 define code_dtype_copy;
 define code_dtype_sym_new_intable;
 define code_dtype_sym_new_inscope;
 define code_dtype_sym_new;
 define code_dtype_sym_set;
-define code_dtype_new;
 define code_dtype_sym_resolve;
 define code_dtype_find;
 define code_dtype_int_gnam;
@@ -61,30 +63,103 @@ begin
 {
 ********************************************************************************
 *
-*   Subroutine CODE_DTYPE_COPY (ORIG, SYMTAB, COPY_P)
+*   Subroutine CODE_DTYPE_NEW_INTABLE (CODE, SYMTAB, DTYPE_P)
 *
-*   Create a COPY data type descriptor that references back to the data type
-*   ORIG.  The memory for the new descriptor will be allocated under the context
-*   of the symbol table SYMTAB.  COPY_P is returned pointing to the new data
-*   type descriptor.  It will be a COPY data type, referencing back to the ORIG
-*   data type.
+*   Allocate and initialize a new data type descriptor.  The new descriptor will
+*   be allocated under the memory context of the symbol table SYMTAB.
 }
-procedure code_dtype_copy (            {make COPY data type}
-  var in  orig: code_dtype_t;          {original data type to copy}
-  in out  symtab: code_symtab_t;       {alloc new mem under context of this sym table}
-  out     copy_p: code_dtype_p_t);     {returned pointer to the COPY data type}
+procedure code_dtype_new_intable (     {create and init new dtype in specific sym table}
+  in out  code: code_t;                {CODE library use state}
+  in out  symtab: code_symtab_t;       {symbol table to add the data type to}
+  out     dtype_p: code_dtype_p_t);    {to newly created data type, initialized}
   val_param;
 
 begin
-  code_alloc_symtab (symtab, sizeof(copy_p^), copy_p); {alloc mem for the copy}
-  code_dtype_init (copy_p^);           {intialize the new descriptor}
+  code_alloc_symtab (                  {alloc mem for the new dtype descriptor}
+    symtab, sizeof(dtype_p^), dtype_p);
 
-  copy_p^.bits_min := orig.bits_min;
-  copy_p^.mem_p := orig.mem_p;
-  copy_p^.flags := orig.flags;
-  copy_p^.typ := code_typid_copy_k;    {this will be a COPY data type}
-  copy_p^.copy_symbol_p := orig.symbol_p; {to copied data type symbol}
-  code_dtype_resolve (orig, copy_p^.copy_dtype_p); {point to final real data type}
+  code_dtype_init (dtype_p^);          {init to default or benign values}
+  end;
+{
+********************************************************************************
+*
+*   Subroutine CODE_DTYPE_NEW_INSCOPE (CODE, SCOPE, DTYPE_P)
+*
+*   Allocate and initialize a new data type descriptor.  The new descriptor will
+*   be allocated under the context of the data types symbol table of the scope
+*   SCOPE.
+}
+procedure code_dtype_new_inscope (     {create and init new dtype in specific scope}
+  in out  code: code_t;                {CODE library use state}
+  in out  scope: code_scope_t;         {scope to create the data type within}
+  out     dtype_p: code_dtype_p_t);    {to newly created data type, initialized}
+  val_param;
+
+var
+  symtab_p: code_symtab_p_t;           {to symbol table to alloc mem under}
+
+begin
+  symtab_p := code_symtab_symtype (    {get pointer to symbol table to alloc dtype in}
+    code, scope, code_symtype_dtype_k);
+  code_dtype_new_intable (             {alloc and init the new data type descriptor}
+    code, symtab_p^, dtype_p);
+  end;
+{
+********************************************************************************
+*
+*   Subroutine CODE_DTYPE_NEW_SYM (CODE, SYM)
+*
+*   Create a new data type descriptor and link the symbol SYM to it.  SYM must
+*   already be a data type, but its data type must not be set yet.
+}
+procedure code_dtype_new_sym (         {create new data type, connect to existing symbol}
+  in out  code: code_t;                {CODE library use state}
+  in out  sym: code_symbol_t);         {sym to connect data type to, must not already be set}
+  val_param;
+
+const
+  max_msg_parms = 1;                   {max parameters we can pass to a message}
+
+var
+  dtype_p: code_dtype_p_t;             {to new data type descriptor}
+  msg_parm:                            {parameter references for messages}
+    array[1..max_msg_parms] of sys_parm_msg_t;
+
+begin
+  if sym.symtype <> code_symtype_dtype_k then begin {symbol not a data type ?}
+    sys_msg_parm_vstr (msg_parm[1], sym.name_p^);
+    code_err_atline (code, '', 'err_sym_not_dtype', msg_parm, 1);
+    end;
+  if sym.dtype_dtype_p <> nil then begin {symbol data type alread set ?}
+    sys_msg_parm_vstr (msg_parm[1], sym.name_p^);
+    code_err_atline (code, '', 'err_sym_dtype_set', msg_parm, 1);
+    end;
+
+  code_dtype_new_intable (code, sym.symtab_p^, dtype_p); {alloc and init new dtype}
+  dtype_p^.symbol_p := addr(sym);      {point data type back to its symbol}
+  sym.dtype_dtype_p := dtype_p;        {link symbol to new data type}
+  end;
+{
+********************************************************************************
+*
+*   Subroutine CODE_DTYPE_COPY (ORIG, COPY)
+*
+*   Fill in the data type COPY to be a COPY data type pointing to ORIG.
+}
+procedure code_dtype_copy (            {make COPY data type}
+  var in  orig: code_dtype_t;          {original data type to copy}
+  out     copy: code_dtype_t);         {will be filled in as copy of ORIG}
+  val_param;
+
+begin
+  code_dtype_init (copy);              {intialize the copy data type}
+
+  copy.bits_min := orig.bits_min;
+  copy.mem_p := orig.mem_p;
+  copy.flags := orig.flags;
+  copy.typ := code_typid_copy_k;       {this will be a COPY data type}
+  copy.copy_symbol_p := orig.symbol_p; {to copied data type symbol}
+  code_dtype_resolve (orig, copy.copy_dtype_p); {point to final real data type}
   end;
 {
 ********************************************************************************
@@ -232,52 +307,17 @@ otherwise
 }
   if copy
     then begin                         {point symbol to data type copy}
-      code_dtype_copy (                {make data type copy}
+      code_dtype_new_intable (         {create new dtype in same symtable as SYM}
+        code, sym.symtab_p^, sym.dtype_dtype_p);
+      code_dtype_copy (                {fill in new data as copy of DTYPE_P^}
         dtype_p^,                      {the data type to copy}
-        sym.symtab_p^,                 {use mem context of this symbol table}
-        sym.dtype_dtype_p);            {returned pointer to COPY data type descriptor}
+        sym.dtype_dtype_p^);           {dtype to fill in as a copy}
       end
     else begin                         {point to the base data type directly}
       sym.dtype_dtype_p := dtype_p;
       end
     ;
   sym.dtype_dtype_p^.symbol_p := addr(sym); {link new dtype to its symbol}
-  end;
-{
-********************************************************************************
-*
-*   Subroutine CODE_DTYPE_NEW (CODE, SYM)
-*
-*   Create a new data type descriptor and link the symbol SYM to it.  SYM must
-*   already be a data type, but its data type must not be set yet.
-}
-procedure code_dtype_new (             {create new data type, connect to existing symbol}
-  in out  code: code_t;                {CODE library use state}
-  in out  sym: code_symbol_t);         {sym to connect data type to, must not already be set}
-  val_param;
-
-const
-  max_msg_parms = 1;                   {max parameters we can pass to a message}
-
-var
-  dtype_p: code_dtype_p_t;             {to new data type descriptor}
-  msg_parm:                            {parameter references for messages}
-    array[1..max_msg_parms] of sys_parm_msg_t;
-
-begin
-  if sym.symtype <> code_symtype_dtype_k then begin {symbol not a data type ?}
-    sys_msg_parm_vstr (msg_parm[1], sym.name_p^);
-    code_err_atline (code, '', 'err_sym_not_dtype', msg_parm, 1);
-    end;
-  if sym.dtype_dtype_p <> nil then begin {symbol data type alread set ?}
-    sys_msg_parm_vstr (msg_parm[1], sym.name_p^);
-    code_err_atline (code, '', 'err_sym_dtype_set', msg_parm, 1);
-    end;
-
-  code_alloc_symtab (sym.symtab_p^, sizeof(dtype_p^), dtype_p); {make new descriptor}
-  code_dtype_init (dtype_p^);          {initialize it to valid values}
-  dtype_p^.symbol_p := addr(sym);      {point data type back to its symbol}
-  sym.dtype_dtype_p := dtype_p;        {link symbol to new data type}
   end;
 {
 ********************************************************************************
@@ -425,7 +465,7 @@ begin
   if sym_p = nil then begin            {this base data type doesn't already exist ?}
     code_dtype_sym_new_intable (       {create new data type symbol}
       code, name, symtab_p^, sym_p);
-    code_dtype_new (code, sym_p^);     {create new data type, link to symbol}
+    code_dtype_new_sym (code, sym_p^); {create new data type, link to symbol}
     sym_p^.dtype_dtype_p^ := template; {fill in the integer data type descriptor}
     sym_p^.dtype_dtype_p^.symbol_p := sym_p; {point new dtype back to its symbol}
     end;

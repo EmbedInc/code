@@ -108,11 +108,26 @@ begin
   }
   code_scope_init (code_p^.scope_root); {init the root scope}
   code_p^.scope_p := addr(code_p^.scope_root); {set the root scope as current}
-
-  discard( code_symtab_symtype (       {make sure data types symbol table exists}
+  {
+  *   Create the scope DTYPE, then create the canonical data types symbol table
+  *   subordinate to it.
+  }
+  code_sym_curr (                      {create the DTYPE scope symbol}
     code_p^,                           {CODE library use state}
-    code_p^.scope_root,                {scope symbol table is within}
-    code_symtype_dtype_k) );           {type of symbols the symbol table will hold}
+    string_v('DTYPE'),                 {symbol name}
+    code_symtype_scope_k,              {type of symbol to create}
+    sym_p,                             {returned pointer to the new symbol}
+    stat);
+  if sys_error(stat) then goto abort1;
+
+  code_scope_push (code_p^, sym_p^);   {create scope in DTYPE symbol, new scope current}
+
+  code_p^.dtcomm_p := code_symtab_symtype ( {make sure data types symbol table exists}
+    code_p^,                           {CODE library use state}
+    code_p^.scope_p^,                  {scope to make symbol table within}
+    code_symtype_dtype_k);             {type of symbols the symbol table will hold}
+
+  code_scope_pop (code_p^);            {back to parent (root) scope}
   {
   *   Create the top level scope MEM, and then create the memories symbol table
   *   subordinate to it.

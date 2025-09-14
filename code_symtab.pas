@@ -111,7 +111,7 @@ begin
 function code_symtab_symtype (         {get symbol table for particular symbol type}
   in out  code: code_t;                {CODE library use state}
   in out  scope: code_scope_t;         {scope the symbol is within}
-  in      symtype: code_symtype_k_t)   {type of symbol}
+  in      symtype: code_symtype_k_t)   {type of symbols symbol table will hold}
   :code_symtab_p_t;                    {pointer to the symbol table, will exist}
   val_param;
 

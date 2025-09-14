@@ -826,7 +826,8 @@ code_ele_write_eol_k: (                {write end of line to standard output}
     comm_eol_p: code_comm_p_t;         {to latest end of line comment}
     scope_root: code_scope_t;          {root scope}
     scope_p: code_scope_p_t;           {to current scope}
-    memsym_p: code_symtab_p_t;         {saved pointer to memory and adr space symbol table}
+    memsym_p: code_symtab_p_t;         {to memory and adr space symbol table in MEM scope}
+    dtcomm_p: code_symtab_p_t;         {to canonical data types sym table in DTYPE scope}
     end;
 {
 *   Functions and subroutines.

@@ -272,7 +272,7 @@ var
 begin
   if sym.symtype <> code_symtype_dtype_k {symbol is not a data type ?}
     then return;
-  if sym.dtype_dtype_p <> nil          {data type alread set for this symbol ?}
+  if sym.dtype_dtype_p <> nil          {data type already set for this symbol ?}
     then return;
 
   copy := false;                       {init to link to the base data type directly}
@@ -446,7 +446,6 @@ procedure code_dtype_int_find (        {find or make base integer data type}
 
 var
   name: string_var32_t;                {decorated name of base integer data type}
-  symtab_p: code_symtab_p_t;           {to symbol table holding base integers}
   sym_p: code_symbol_p_t;              {to base integer data type symbol}
 
 begin
@@ -455,16 +454,13 @@ begin
   if template.typ <> code_typid_int_k  {not integer data type ?}
     then return;
 
-  symtab_p := code_symtab_symtype (    {get pointer to root data types symbol table}
-    code, code.scope_root, code_symtype_dtype_k);
-
   code_dtype_int_gnam (code, template, name); {make name of this integer data type}
 
-  code_sym_lookup (code, name, symtab_p^, sym_p); {try to find existing symbol}
+  code_sym_lookup (code, name, code.dtcomm_p^, sym_p); {try to find existing symbol}
 
   if sym_p = nil then begin            {this base data type doesn't already exist ?}
     code_dtype_sym_new_intable (       {create new data type symbol}
-      code, name, symtab_p^, sym_p);
+      code, name, code.dtcomm_p^, sym_p);
     code_dtype_new_sym (code, sym_p^); {create new data type, link to symbol}
     sym_p^.dtype_dtype_p^ := template; {fill in the integer data type descriptor}
     sym_p^.dtype_dtype_p^.symbol_p := sym_p; {point new dtype back to its symbol}

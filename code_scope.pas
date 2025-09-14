@@ -29,14 +29,13 @@ begin
 {
 ********************************************************************************
 *
-*   Subroutine CODE_SCOPE_PUSH (CODE)
+*   Subroutine CODE_SCOPE_PUSH (CODE, SYM)
 *
-*   Create a new scope and set it as the current scope.  The scope is
-*   initialized as a child of the current scope.
+*   Create a scope within the symbol SYM and set it as the current scope.
 }
 procedure code_scope_push (            {create new subordinate scope, make curr}
   in out  code: code_t;                {CODE library use state}
-  in out  sym: code_symbol_t);         {symbol defining the new scope}
+  in out  sym: code_symbol_t);         {existing symbol defining the new scope}
   val_param;
 
 const

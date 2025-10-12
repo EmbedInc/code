@@ -42,7 +42,9 @@ type
   code_proc_p_t = ^code_proc_t;
   code_refmod_p_t = ^code_refmod_t;
   code_scope_p_t = ^code_scope_t;
-  code_sylist_p_t = ^code_sylist_t;
+  code_syent_p_t = ^code_syent_t;
+  code_symlist_p_t = ^code_symlist_t;
+  code_symlist_ent_p_t = ^code_symlist_ent_t;
   code_sym_field_p_t = ^code_sym_field_t;
   code_sym_proc_p_t = ^code_sym_proc_t;
   code_sym_var_p_t = ^code_sym_var_t;
@@ -404,11 +406,6 @@ code_symtype_label_k: (                {symbol is a statement label}
       );
     end;
 
-  code_sylist_t = record               {symbols list entry}
-    next_p: code_sylist_p_t;           {to next list entry}
-    sym_p: code_symbol_p_t;            {symbol for this list entry}
-    end;
-
   code_symtab_t = record               {data for one symbol table}
     scope_p: code_scope_p_t;           {to scope for general symbol tables}
     parsym_p: code_symbol_p_t;         {to parent symbol for private tables}
@@ -423,6 +420,24 @@ code_symtype_label_k: (                {symbol is a statement label}
     symtab_dtype_p: code_symtab_p_t;   {to table for data types}
     symtab_label_p: code_symtab_p_t;   {to table for labels}
     symtab_other_p: code_symtab_p_t;   {to table for all other symbol types}
+    end;
+
+  code_syent_t = record                {simple symbols list entry}
+    next_p: code_syent_p_t;            {to next list entry}
+    sym_p: code_symbol_p_t;            {symbol for this list entry}
+    end;
+
+  code_symlist_ent_t = record          {one entry in fully linked symbols list}
+    prev_p: code_symlist_ent_p_t;      {to previous entry, NIL at first}
+    next_p: code_symlist_ent_p_t;      {to next entry, NIL at last}
+    sym_p: code_symbol_p_t;            {to the symbol of this list entry}
+    end;
+
+  code_symlist_t = record              {fully linked symbols list}
+    mem_p: util_mem_context_p_t;       {to memory context for list data}
+    n: sys_int_machine_t;              {number of entries in the list}
+    first_p: code_symlist_ent_p_t;     {to first list entry, NIL on empty list}
+    last_p: code_symlist_ent_p_t;      {to last list entry, NIL on empty list}
     end;
 {
 *   Expressions.
@@ -781,7 +796,7 @@ code_ele_return_k: (                   {return from subroutine}
 code_ele_alias_k: (                    {aliases in effect over a block of code}
       alias_scope_p: code_scope_p_t;   {points to scope of alias symbols}
       alias_code_p: code_ele_p_t;      {points to code that can use aliases}
-      alias_list_p: code_sylist_p_t;   {list of aliases that apply in block}
+      alias_list_p: code_syent_p_t;    {list of aliases that apply in block}
       );
 code_ele_discard_k: (                  {call function but discard its return value}
       discard_exp_p: code_exp_p_t;     {expression which is the function reference}
@@ -1168,6 +1183,36 @@ procedure code_sym_show (              {show symbol and any subordinate tree}
   in out  code: code_t;                {CODE library use state}
   in      sym: code_symbol_t;          {symbol to show description of}
   in      lev: sys_int_machine_t);     {nesting level, 0 at top}
+  val_param; extern;
+
+procedure code_symlist_del (           {delete symbols list, deallocate resources}
+  in out  list_p: code_symlist_p_t);   {to symbols list, returned NIL}
+  val_param; extern;
+
+procedure code_symlist_ent_add (       {add new entry to the end of the list}
+  in out  list: code_symlist_t;        {list to add entry to}
+  in var  sym: code_symbol_t);         {symbol to add}
+  val_param; extern;
+
+procedure code_symlist_ent_insert (    {insert new entry at specific point in list}
+  in out  list: code_symlist_t;        {list to add entry to}
+  in      bef_p: code_symlist_ent_p_t; {to list ent to insert after, NIL for at start}
+  in var  sym: code_symbol_t);         {symbol to add}
+  val_param; extern;
+
+procedure code_symlist_ent_move (      {move entry within symbols list}
+  in out  list: code_symlist_t;        {list to move entry within}
+  in out  ent: code_symlist_ent_t;     {the entry to move}
+  in out  bef_p: code_symlist_ent_p_t); {to list ent to move after, NIL for at start}
+  val_param; extern;
+
+procedure code_symlist_sort (          {sort list in alphabetical order}
+  in out  list: code_symlist_t);       {the list to sort}
+  val_param; extern;
+
+procedure code_symlist_new (           {create new empty symbols list}
+  in out  mem: util_mem_context_t;     {parent mem context, will create subordinate}
+  out     list_p: code_symlist_p_t);   {returned pointer to new list}
   val_param; extern;
 
 procedure code_symtab_exist_scope (    {make sure symbol table in scope exists}

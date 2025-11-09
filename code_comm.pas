@@ -207,13 +207,13 @@ begin
 {
 ********************************************************************************
 *
-*   Subroutine CODE_COMM_SHOW1 (COMM, INDENT)
+*   Subroutine CODE_COMM_SHOW1 (COMM, LEV)
 *
 *   Show the contents of the single comment descriptor, COMM.
 }
 procedure code_comm_show1 (            {show contents of single comment descriptor}
   in      comm: code_comm_t;           {the comment to show contents of}
-  in      indent: sys_int_machine_t);  {number of spaces to indent all output}
+  in      lev: sys_int_machine_t);     {nesting level, 0 at top}
   val_param;
 
 var
@@ -223,21 +223,20 @@ begin
   case comm.commty of                  {what type of comment is it ?}
 
 code_commty_block_k: begin             {block comment}
-      string_nblanks (indent);
+      code_show_level_blank (lev);
       writeln ('Block comment on line ', comm.pos.line_p^.lnum,
         ', level ', comm.block_level, ':');
       slent_p := comm.block_list_p;    {init to first comment line}
       while slent_p <> nil do begin
-        string_nblanks (indent+2);
+        code_show_level_blank (lev+1);
         writeln ('|', slent_p^.str_p^.str:slent_p^.str_p^.len);
         slent_p := slent_p^.next_p;
         end;
       end;
 
 code_commty_eol_k: begin               {end of line comment}
-      string_nblanks (indent);
-      writeln ('End of line comment:');
-      string_nblanks (indent+2);
+      code_show_level_blank (lev);
+      write ('''');
       writeln (comm.eol_str_p^.str:comm.eol_str_p^.len);
       end;
 
@@ -248,30 +247,25 @@ otherwise
 {
 ********************************************************************************
 *
-*   Subroutine CODE_COMM_SHOW (COMM_P, INDENT)
+*   Subroutine CODE_COMM_SHOW (COMM_P, LEV)
 *
 *   Show the contents of the hierarchy of comments pointed to by COMM_P.  It is
-*   permissible for COMM_P to be NIL.  In that case, a message is written to
-*   indicate no comments.
+*   permissible for COMM_P to be NIL.  In that case nothing is written.
 }
 procedure code_comm_show (             {show comment hierarchy on STDOUT, for debugging}
   in      comm_p: code_comm_p_t;       {pointer to comments, may be NIL}
-  in      indent: sys_int_machine_t);  {number of spaces to indent all output}
+  in      lev: sys_int_machine_t);     {nesting level, 0 at top}
   val_param;
 
 var
   com_p: code_comm_p_t;                {pointer to current comment}
 
 begin
-  if comm_p = nil then begin           {no comments ?}
-    string_nblanks (indent);
-    writeln ('-- no comments --');
-    return;
-    end;
+  if comm_p = nil then return;         {no comments ?}
 
   com_p := comm_p;                     {init to first comment in hierarchy}
   while com_p <> nil do begin          {scan up the comments hierarchy}
-    code_comm_show1 (com_p^, indent);  {show this comment}
+    code_comm_show1 (com_p^, lev);     {show this comment}
     com_p := com_p^.prev_p;            {to previous comment}
     end;
   end;

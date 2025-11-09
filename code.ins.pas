@@ -932,12 +932,12 @@ procedure code_comm_new_eol (          {add new end of line comment to system}
 
 procedure code_comm_show (             {show comment hierarchy on STDOUT, for debugging}
   in      comm_p: code_comm_p_t;       {pointer to comments, may be NIL}
-  in      indent: sys_int_machine_t);  {number of spaces to indent all output}
+  in      lev: sys_int_machine_t);     {nesting level, 0 at top}
   val_param; extern;
 
 procedure code_comm_show1 (            {show contents of single comment descriptor}
   in      comm: code_comm_t;           {the comment to show contents of}
-  in      indent: sys_int_machine_t);  {number of spaces to indent all output}
+  in      lev: sys_int_machine_t);     {nesting level, 0 at top}
   val_param; extern;
 
 procedure code_dtype_copy (            {make COPY data type}
@@ -1122,8 +1122,11 @@ procedure code_scope_show (            {show scope tree}
   in      lev: sys_int_machine_t);     {nesting level, 0 at top}
   val_param; extern;
 
-procedure code_show_indent (           {write leading indentation to show nesting level}
-  in out  code: code_t;                {CODE library use state}
+procedure code_show_level_blank (      {indent to nesting level, write blanks only}
+  in      lev: sys_int_machine_t);     {nesting level, 0 at top}
+  val_param; extern;
+
+procedure code_show_level_dot (        {indent to nesting level, show dot per level}
   in      lev: sys_int_machine_t);     {nesting level, 0 at top}
   val_param; extern;
 
@@ -1135,8 +1138,13 @@ procedure code_show_memattr (          {write short names for each enabled mem a
   in      attr: code_memattr_t);       {set of memory attributes to show}
   val_param; extern;
 
-procedure code_show_pos (              {show the current parsing position on STDOUT}
+procedure code_show_pos_parse (        {show the current parsing position on STDOUT}
   in out  code: code_t);               {CODE library use state}
+  val_param; extern;
+
+procedure code_show_pos (              {show source code position}
+  in      pos: fline_cpos_t;           {character position to show}
+  in      lev: sys_int_machine_t);     {nesting level, 0 at top}
   val_param; extern;
 
 procedure code_sym_curr (              {create symbol in current scope}

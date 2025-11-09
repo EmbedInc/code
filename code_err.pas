@@ -23,7 +23,7 @@ procedure code_err_atline (            {show error, current loc, and bomb}
 begin
   sys_message_parms (subsys, msg, parms, nparms); {show the caller's message}
   sys_message ('code', 'err_atline');
-  code_show_pos (code);                {show parsing position at time of error}
+  code_show_pos_parse (code);          {show parsing position at time of error}
   sys_bomb;                            {bomb the program}
   end;
 {

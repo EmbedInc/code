@@ -178,7 +178,7 @@ label
 begin
   tk.max := size_char(tk.str);         {init local var string}
 
-  code_show_indent (code, lev);        {write leading indentation for this level}
+  code_show_level_dot (lev);           {write leading indentation for this level}
 
   if sym.name_p = nil                  {show symbol name}
     then begin
@@ -350,6 +350,12 @@ otherwise
     end;
 done_sytype:                           {done writing info for this symbol type}
   writeln;
+
+  code_show_pos (sym.pos, lev + 1);    {show source code location, if known}
+
+  if sym.comm_p <> nil then begin
+    code_comm_show (sym.comm_p, lev + 1);
+    end;
 
   if sym.subscope_p <> nil then begin  {has subordinate scope ?}
     code_scope_show (code, sym.subscope_p^, lev + 1);

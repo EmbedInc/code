@@ -2,19 +2,87 @@
 }
 module code_show;
 define code_show_pos;
-define code_show_indent;
+define code_show_pos_parse;
+define code_show_level_blank;
+define code_show_level_dot;
 define code_show_memaccs;
 define code_show_memattr;
 %include 'code2.ins.pas';
 {
 ********************************************************************************
 *
-*   Subroutine CODE_SHOW_POS (CODE)
+*   Local subroutine SHOW_COLL_LINE (COLL, LNUM, LEV)
+*
+*   Show the collection name and the line number within the collection.
+}
+procedure show_coll_line (             {show collection and line within}
+  in      coll: fline_coll_t;          {collection line is within}
+  in      lnum: sys_int_machine_t;     {line number within collection}
+  in      lev: sys_int_machine_t);     {nesting level to show data at}
+  val_param; internal;
+
+begin
+  if coll.name_p = nil then return;    {collection has no name ?}
+  if coll.name_p^.len <= 0 then return; {collection name is empty ?}
+
+  code_show_level_blank (lev);
+  writeln ('From "', coll.name_p^.str:coll.name_p^.len, '" line ', lnum);
+  end;
+{
+********************************************************************************
+*
+*   Subroutine CODE_SHOW_POS (POS, LEV)
+*
+*   Show the source code location indicated by POS.  Leading blanks are written
+*   according to the nesting level LEV.
+}
+procedure code_show_pos (              {show source code position}
+  in      pos: fline_cpos_t;           {character position to show}
+  in      lev: sys_int_machine_t);     {nesting level, 0 at top}
+  val_param;
+
+label
+  nvirt;
+
+begin
+  if pos.line_p = nil then return;     {source line not known, nothing to do ?}
+
+  if pos.line_p^.virt_p = nil          {no virtual line available ?}
+    then goto nvirt;
+  if pos.line_p^.virt_p^.coll_p = nil  {collection virt line is in unknown ?}
+    then goto nvirt;
+  if pos.line_p^.virt_p^.coll_p^.name_p = nil {virtual collection has no name ?}
+    then goto nvirt;
+  if pos.line_p^.virt_p^.coll_p^.name_p^.len <= 0 {virtual coll name is empty ?}
+    then goto nvirt;
+{
+*   Show the virtual line info.
+}
+  show_coll_line (                     {show collection name and line number}
+    pos.line_p^.virt_p^.coll_p^,       {collection}
+    pos.line_p^.virt_p^.lnum,          {line number within the collection}
+    lev);                              {nesting level}
+  return;
+{
+*   Show the physical line info, if available.
+}
+nvirt:                                 {virtual line info not available}
+  if pos.line_p^.coll_p = nil then return; {collection is unknown ?}
+
+  show_coll_line (                     {show collection name and line number}
+    pos.line_p^.coll_p^,               {collection}
+    pos.line_p^.lnum,                  {line number within the collection}
+    lev);                              {nesting level}
+  end;
+{
+********************************************************************************
+*
+*   Subroutine CODE_SHOW_POS_PARSE (CODE)
 *
 *   Show the current parsing position within the input files.  When possible,
 *   the current line is shown with a pointer to the current character.
 }
-procedure code_show_pos (              {show the current parsing position on STDOUT}
+procedure code_show_pos_parse (        {show the current parsing position on STDOUT}
   in out  code: code_t);               {CODE library use state}
   val_param;
 
@@ -24,14 +92,31 @@ begin
 {
 ********************************************************************************
 *
-*   Subroutine CODE_SHOW_INDENT (CODE, LEV)
+*   Subroutine CODE_SHOW_LEVEL_BLANK (LEV)
 *
-*   Write leading indentation to show the nesting level LEV.  LEV of 0 indicates
-*   the top (root) level, with higher values successive levels subordinate to
-*   the top.
+*   Indent to show the nesting level LEV.  LEV of 0 indicates the top (root)
+*   level, with higher values successive levels subordinate to the top.
+*
+*   Only blanks are written.
 }
-procedure code_show_indent (           {write leading indentation to show nesting level}
-  in out  code: code_t;                {CODE library use state}
+procedure code_show_level_blank (      {indent to nesting level, write blanks only}
+  in      lev: sys_int_machine_t);     {nesting level, 0 at top}
+  val_param;
+
+begin
+  string_nblanks (lev * 2);
+  end;
+{
+********************************************************************************
+*
+*   Subroutine CODE_SHOW_LEVEL_DOT (LEV)
+*
+*   Indent to show the nesting level LEV.  LEV of 0 indicates the top (root)
+*   level, with higher values successive levels subordinate to the top.
+*
+*   One dot is shown for each nested level.
+}
+procedure code_show_level_dot (        {indent to nesting level, show dot per level}
   in      lev: sys_int_machine_t);     {nesting level, 0 at top}
   val_param;
 

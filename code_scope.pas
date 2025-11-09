@@ -95,24 +95,18 @@ procedure code_scope_show (            {show scope tree}
   in      lev: sys_int_machine_t);     {nesting level, 0 at top}
   val_param;
 
+var
+  list_p: code_symlist_p_t;            {to list of symbols in this scope}
+  ent_p: code_symlist_ent_p_t;         {to current symbols list entry}
+
 begin
-  if scope.symtab_scope_p <> nil then begin
-    code_symtab_show (code, scope.symtab_scope_p^, lev);
-    end;
+  code_symlist_new (code.mem_p^, list_p); {init symbols list}
+  code_symlist_add_scope (list_p^, scope); {add all symbols in scope to the list}
+  code_symlist_sort (list_p^);         {sort the list of symbols}
 
-  if scope.symtab_vcon_p <> nil then begin
-    code_symtab_show (code, scope.symtab_vcon_p^, lev);
-    end;
-
-  if scope.symtab_dtype_p <> nil then begin
-    code_symtab_show (code, scope.symtab_dtype_p^, lev);
-    end;
-
-  if scope.symtab_label_p <> nil then begin
-    code_symtab_show (code, scope.symtab_label_p^, lev);
-    end;
-
-  if scope.symtab_other_p <> nil then begin
-    code_symtab_show (code, scope.symtab_other_p^, lev);
+  ent_p := list_p^.first_p;            {init to first symbols list entry}
+  while ent_p <> nil do begin          {once for each symbol in the list}
+    code_sym_show (code, ent_p^.sym_p^, lev); {show this symbol}
+    ent_p := ent_p^.next_p;            {to next symbol in list}
     end;
   end;

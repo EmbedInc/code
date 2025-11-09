@@ -412,6 +412,11 @@ code_symtype_label_k: (                {symbol is a statement label}
     hash: string_hash_handle_t;        {handle to hash table symbols stored in}
     end;
 
+  code_symtab_get_t = record           {state for getting symbols from symbol table}
+    pos: string_hash_pos_t;            {position within hash table}
+    valid: boolean;                    {POS is valid, is at a hash table entry}
+    end;
+
   code_scope_t = record                {data about a scope or namespace}
     parscope_p: code_scope_p_t;        {to parent scope, NIL at root}
     symbol_p: code_symbol_p_t;         {to symbol defining this scope, NIL at root}
@@ -1185,6 +1190,16 @@ procedure code_sym_show (              {show symbol and any subordinate tree}
   in      lev: sys_int_machine_t);     {nesting level, 0 at top}
   val_param; extern;
 
+procedure code_symlist_add_scope (     {add all symbols in a scope to symbols list}
+  in out  list: code_symlist_t;        {list to add symbols to}
+  in      scope: code_scope_t);        {scope to add symbols from}
+  val_param; extern;
+
+procedure code_symlist_add_symtab (    {add symbols in symbol table to symbols list}
+  in out  list: code_symlist_t;        {list to add symbols to}
+  in var  symtab: code_symtab_t);      {symbolt table to add symbols from}
+  val_param; extern;
+
 procedure code_symlist_del (           {delete symbols list, deallocate resources}
   in out  list_p: code_symlist_p_t);   {to symbols list, returned NIL}
   val_param; extern;
@@ -1219,6 +1234,16 @@ procedure code_symtab_exist_scope (    {make sure symbol table in scope exists}
   in out  code: code_t;                {CODE library use state}
   in out  scope: code_scope_t;         {scope symbol table will be within}
   in out  symtab_p: code_symtab_p_t);  {symbol table pointer in scope, filled in if NIL}
+  val_param; extern;
+
+procedure code_symtab_get (            {get next symbol in symbol table}
+  in out  syget: code_symtab_get_t;    {symbol getting state}
+  out     sym_p: code_symbol_p_t);     {to next symbol, NIL on hit end of table}
+  val_param; extern;
+
+procedure code_symtab_get_init (       {init for getting symbols from symbol table}
+  out     syget: code_symtab_get_t;    {symbol getting state to initialize}
+  in var  symtab: code_symtab_t);      {symbol table will be getting symbols from}
   val_param; extern;
 
 procedure code_symtab_new_sym (        {create symbol table subordinate to a symbol}

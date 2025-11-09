@@ -8,6 +8,8 @@ define code_symlist_ent_add;
 define code_symlist_ent_insert;
 define code_symlist_ent_move;
 define code_symlist_sort;
+define code_symlist_add_symtab;
+define code_symlist_add_scope;
 %include 'code2.ins.pas';
 {
 ********************************************************************************
@@ -94,6 +96,7 @@ begin
       list.last_p^.next_p := ent_p;
       end
     ;
+  list.last_p := ent_p;                {update pointer to last list entry}
   list.n := list.n + 1;                {count one more entry in the list}
   end;
 {
@@ -299,4 +302,59 @@ next_comp:                             {advance to the next entry to compare aga
         end
       ;
     end;                               {back to do entry at CURR_P}
+  end;
+{
+********************************************************************************
+*
+*   Subroutine CODE_SYMLIST_ADD_SYMTAB (LIST, SYMTAB)
+*
+*   Add all the symbols in the symbol table SYMTAB to the end of the symbols
+*   list LIST.
+}
+procedure code_symlist_add_symtab (    {add symbols in symbol table to symbols list}
+  in out  list: code_symlist_t;        {list to add symbols to}
+  in var  symtab: code_symtab_t);      {symbolt table to add symbols from}
+  val_param;
+
+var
+  syget: code_symtab_get_t;            {state for getting symbols from symbol table}
+  sym_p: code_symbol_p_t;              {to current symbol}
+
+begin
+  code_symtab_get_init (syget, symtab); {init for reading the symbol table}
+
+  while true do begin                  {loop until symbol table exhausted}
+    code_symtab_get (syget, sym_p);    {get pointer to next symbol}
+    if sym_p = nil then exit;          {done all symbols in this symbol table ?}
+    code_symlist_ent_add (list, sym_p^); {add this symbol to end of list}
+    end;                               {back for next symbol in symbol table}
+  end;
+{
+********************************************************************************
+*
+*   Subroutine CODE_SYMLIST_ADD_SCOPE (LIST, SCOPE)
+*
+*   Add the symbols from all the symbol tables of the scope SCOPE to the end of
+*   the symbols list LIST.
+}
+procedure code_symlist_add_scope (     {add all symbols in a scope to symbols list}
+  in out  list: code_symlist_t;        {list to add symbols to}
+  in      scope: code_scope_t);        {scope to add symbols from}
+  val_param;
+
+begin
+  if scope.symtab_scope_p <> nil
+    then code_symlist_add_symtab (list, scope.symtab_scope_p^);
+
+  if scope.symtab_vcon_p <> nil
+    then code_symlist_add_symtab (list, scope.symtab_vcon_p^);
+
+  if scope.symtab_dtype_p <> nil
+    then code_symlist_add_symtab (list, scope.symtab_dtype_p^);
+
+  if scope.symtab_label_p <> nil
+    then code_symlist_add_symtab (list, scope.symtab_label_p^);
+
+  if scope.symtab_other_p <> nil
+    then code_symlist_add_symtab (list, scope.symtab_other_p^);
   end;

@@ -6,6 +6,8 @@ define code_symtab_new_sym;
 define code_symtab_symtype;
 define code_symtab_show;
 define code_symtab_mem;
+define code_symtab_get_init;
+define code_symtab_get;
 %include 'code2.ins.pas';
 {
 ********************************************************************************
@@ -180,4 +182,54 @@ function code_symtab_mem (             {get memory context of a symbol table}
 
 begin
   code_symtab_mem := symtab.hash^.mem_p;
+  end;
+{
+********************************************************************************
+*
+*   Subroutine CODE_SYMTAB_GET_INIT (SYGET, SYMTAB)
+*
+*   Initialize for getting symbols from the symbol table SYMTAB.  SYGET is a
+*   private structure to the CODE_SYMTAB_GET... routines.  It will be
+*   initialized so that sequential calls to CODE_SYMTAB_GET will return all the
+*   symbols in the symbol table.
+}
+procedure code_symtab_get_init (       {init for getting symbols from symbol table}
+  out     syget: code_symtab_get_t;    {symbol getting state to initialize}
+  in var  symtab: code_symtab_t);      {symbol table will be getting symbols from}
+  val_param;
+
+begin
+  string_hash_pos_first (symtab.hash, syget.pos, syget.valid);
+  end;
+{
+********************************************************************************
+*
+*   Subroutine CODE_SYMTAB_GET (SYGET, SYM_P)
+*
+*   Get another symbol from a symbol table.  SYGET is the symbol getting state,
+*   which must have been originally initialized with CODE_SYMTAB_GET_INIT.
+*
+*   SYM_P is returned pointing to the next symbol.  SYM_P is returned NIL when
+*   all symbols in the symbol table have already been returned.
+*
+*   There is no guarantee in what order the symbols of the symbol table are
+*   returned.  All symbols in the symbol table are returned exactly once, then
+*   SYM_P will be returned NIL after that.
+}
+procedure code_symtab_get (            {get next symbol in symbol table}
+  in out  syget: code_symtab_get_t;    {symbol getting state}
+  out     sym_p: code_symbol_p_t);     {to next symbol, NIL on hit end of table}
+  val_param;
+
+var
+  name_p: string_var_p_t;              {to hash table entry name, unused}
+
+begin
+  if not syget.valid then begin        {previously exhausted the symbol table ?}
+    sym_p := nil;
+    return;
+    end;
+
+  string_hash_ent_atpos (syget.pos, name_p, sym_p); {get pointer to this entry}
+  string_hash_pos_next (syget.pos, syget.valid); {update position to next entry}
   end;

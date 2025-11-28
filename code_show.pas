@@ -41,32 +41,63 @@ procedure code_show_pos (              {show source code position}
   in      lev: sys_int_machine_t);     {nesting level, 0 at top}
   val_param;
 
+var
+  lpos_p: fline_lpos_p_t;              {to current logical line in hierarchy}
+  coll_p: fline_coll_p_t;              {to current collection in hierarch}
+  logshown: boolean;                   {at least one logical position was shown}
+
 label
   nvirt;
 
 begin
   if pos.line_p = nil then return;     {source line not known, nothing to do ?}
-
+{
+*   Show the virtual line info, if available.
+}
   if pos.line_p^.virt_p = nil          {no virtual line available ?}
     then goto nvirt;
-  if pos.line_p^.virt_p^.coll_p = nil  {collection virt line is in unknown ?}
+  coll_p := pos.line_p^.virt_p^.coll_p; {get pointer to collection}
+
+  if coll_p = nil                      {collection virt line is in unknown ?}
     then goto nvirt;
-  if pos.line_p^.virt_p^.coll_p^.name_p = nil {virtual collection has no name ?}
+  if coll_p^.name_p = nil              {virtual collection has no name ?}
     then goto nvirt;
-  if pos.line_p^.virt_p^.coll_p^.name_p^.len <= 0 {virtual coll name is empty ?}
+  if coll_p^.name_p^.len <= 0          {virtual coll name is empty ?}
     then goto nvirt;
-{
-*   Show the virtual line info.
-}
+
   show_coll_line (                     {show collection name and line number}
-    pos.line_p^.virt_p^.coll_p^,       {collection}
+    coll_p^,                           {collection}
     pos.line_p^.virt_p^.lnum,          {line number within the collection}
     lev);                              {nesting level}
   return;
+
+nvirt:                                 {virtual line info not available}
+{
+*   Show the logical line info, if available.
+}
+  logshown := false;                   {init to no logical position shown}
+  lpos_p := pos.line_p^.lpos_p;        {init to lowest level logical position}
+
+  while lpos_p <> nil do begin         {up the logical hierarchy}
+    if lpos_p^.line_p = nil then exit;
+    coll_p := lpos_p^.line_p^.coll_p;  {get pointer to collection at this level}
+    if                                 {this collection has a name ?}
+        (coll_p^.name_p <> nil) and then
+        (coll_p^.name_p^.len > 0)
+        then begin
+      show_coll_line (                 {show location at this hiearchy level}
+        coll_p^,                       {collection}
+        lpos_p^.line_p^.lnum,          {line number within the collection}
+        lev);                          {nesting level}
+      logshown := true;                {logical position was shown}
+      end;
+    lpos_p := lpos_p^.prev_p;          {to next logical level up}
+    end;                               {back to show next level up}
+
+  if logshown then return;             {showed logical hierarchy, all done ?}
 {
 *   Show the physical line info, if available.
 }
-nvirt:                                 {virtual line info not available}
   if pos.line_p^.coll_p = nil then return; {collection is unknown ?}
 
   show_coll_line (                     {show collection name and line number}

@@ -444,6 +444,15 @@ code_symtype_label_k: (                {symbol is a statement label}
     first_p: code_symlist_ent_p_t;     {to first list entry, NIL on empty list}
     last_p: code_symlist_ent_p_t;      {to last list entry, NIL on empty list}
     end;
+
+  code_symshow_k_t = (                 {optional info to include when showing a symbol}
+    code_symshow_commeol_k,            {end of line comment}
+    code_symshow_comm_k,               {complete comment hierarchy}
+    code_symshow_scope1_k,             {show one level of subordinate scopes}
+    code_symshow_scopes_k,             {all subordinate scopes in tree structure}
+    code_symshow_sub_k,                {private subordinate symbols, like fields in dtype}
+    code_symshow_source_k);            {source code location}
+  code_symshow_t = set of code_symshow_k_t; {flags for all optional items in one word}
 {
 *   Expressions.
 }
@@ -990,6 +999,13 @@ procedure code_dtype_resolve (         {resolve absolute data type}
   out     final_p: code_dtype_p_t);    {returned pointer to final (not copy) dtype}
   val_param; extern;
 
+procedure code_dtype_show (            {show data type description to user}
+  in out  code: code_t;                {CODE library use state}
+  var in  dtype: code_dtype_t;         {data type to show}
+  in      lev: sys_int_machine_t;      {nesting level data being shown at, 0 = top}
+  in      show: code_symshow_t);       {flags enabling optional information to show}
+  val_param; extern;
+
 procedure code_dtype_sym_new (         {new data type symbol in curr scope}
   in out  code: code_t;                {CODE library use state}
   in      name: univ string_var_arg_t; {name of data type to create}
@@ -1119,7 +1135,8 @@ procedure code_scope_push (            {create new subordinate scope, make curr}
 procedure code_scope_show (            {show scope tree}
   in out  code: code_t;                {CODE library use state}
   in      scope: code_scope_t;         {the scope to show}
-  in      lev: sys_int_machine_t);     {nesting level, 0 at top}
+  in      lev: sys_int_machine_t;      {nesting level, 0 at top}
+  in      show: code_symshow_t);       {list of optional info to show per symbol}
   val_param; extern;
 
 procedure code_show_level_blank (      {indent to nesting level, write blanks only}
@@ -1195,7 +1212,13 @@ procedure code_sym_new (               {create new symbol, err if exists}
 procedure code_sym_show (              {show symbol and any subordinate tree}
   in out  code: code_t;                {CODE library use state}
   in      sym: code_symbol_t;          {symbol to show description of}
-  in      lev: sys_int_machine_t);     {nesting level, 0 at top}
+  in      lev: sys_int_machine_t;      {nesting level, 0 at top}
+  in      show: code_symshow_t);       {list of optional info to show per symbol}
+  val_param; extern;
+
+function code_symshow_resolve (        {resolve show flag overrides to final values}
+  in      show: code_symshow_t)        {show flags to apply rules to resolve}
+  :code_symshow_t;                     {fully resolved show flags}
   val_param; extern;
 
 procedure code_symlist_add_scope (     {add all symbols in a scope to symbols list}
@@ -1268,7 +1291,8 @@ function code_symtab_mem (             {get memory context of a symbol table}
 procedure code_symtab_show (           {show symbol table tree}
   in out  code: code_t;                {CODE library use state}
   in      symtab: code_symtab_t;       {symbol table to show}
-  in      lev: sys_int_machine_t);     {nesting level, 0 at top}
+  in      lev: sys_int_machine_t;      {nesting level, 0 at top}
+  in      show: code_symshow_t);       {list of optional info to show per symbol}
   val_param; extern;
 
 function code_symtab_symtype (         {get symbol table for particular symbol type}

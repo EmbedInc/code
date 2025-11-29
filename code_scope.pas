@@ -84,7 +84,7 @@ begin
 {
 ********************************************************************************
 *
-*   Subroutine CODE_SCOPE_SHOW (CODE, SCOPE, LEV)
+*   Subroutine CODE_SCOPE_SHOW (CODE, SCOPE, LEV, SHOW)
 *
 *   Show the symbols in the scope SCOPE, and the tree of subordinate scopes.
 *   LEV is the nesting level to show the symbols directly in SCOPE at.
@@ -92,7 +92,8 @@ begin
 procedure code_scope_show (            {show scope tree}
   in out  code: code_t;                {CODE library use state}
   in      scope: code_scope_t;         {the scope to show}
-  in      lev: sys_int_machine_t);     {nesting level, 0 at top}
+  in      lev: sys_int_machine_t;      {nesting level, 0 at top}
+  in      show: code_symshow_t);       {list of optional info to show per symbol}
   val_param;
 
 var
@@ -106,7 +107,7 @@ begin
 
   ent_p := list_p^.first_p;            {init to first symbols list entry}
   while ent_p <> nil do begin          {once for each symbol in the list}
-    code_sym_show (code, ent_p^.sym_p^, lev); {show this symbol}
+    code_sym_show (code, ent_p^.sym_p^, lev, show); {show this symbol}
     ent_p := ent_p^.next_p;            {to next symbol in list}
     end;
   end;

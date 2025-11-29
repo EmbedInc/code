@@ -156,27 +156,91 @@ begin
 {
 ********************************************************************************
 *
-*   Subroutine CODE_SYM_SHOW (CODE, SYM, LEV)
+*   Function CODE_SYMSHOW_RESOLVE (SHOW)
 *
-*   Show one-line description of the symbol SYM, for debugging.  LEV is the
-*   nesting level to show the symbol at, with 0 being the top level.
+*   Returns the final fully resolved set of symbol-showing flags implied by
+*   SHOW.  Some flags in SHOW may inhibit or imply others.  This function
+*   returns the set of flags ultimately enabled by SHOW.
 }
-procedure code_sym_show (              {show description of symbol}
+function code_symshow_resolve (        {resolve show flag overrides to final values}
+  in      show: code_symshow_t)        {show flags to apply rules to resolve}
+  :code_symshow_t;                     {fully resolved show flags}
+  val_param;
+
+var
+  sh: code_symshow_t;                  {resolved flags}
+
+begin
+  sh := show;                          {init to originally enabled flags}
+
+  if code_symshow_comm_k in show then begin
+    sh := sh + [code_symshow_commeol_k];
+    end;
+
+  if code_symshow_scopes_k in show then begin
+    sh := sh + [code_symshow_scope1_k];
+    end;
+
+  code_symshow_resolve := sh;          {pass back final result}
+  end;
+{
+********************************************************************************
+*
+*   Subroutine CODE_SYM_SHOW (CODE, SYM, LEV, SHOW)
+*
+*   Write a description of the symbol SYM to standard output.
+*
+*   LEV is the nesting level to show the symbol at, with 0 being the top level.
+*
+*   The basic one-line description of the symbol is always shown.  SHOW is a set
+*   of flags that enable showing additional information.  The possible flags in
+*   SHOW and what they enable are:
+*
+*     CODE_SYMSHOW_COMMEOL_K
+*
+*       Show the end of line comment, if any, the symbol is tagged with.
+*
+*     CODE_SYMSHOW_COMM_K
+*
+*       Show the complete comment hierarchy for the symbol, including the end of
+*       line comment.  When this flag is set, CODE_SYMSHOW_COMMEOL_K becomes
+*       irrelevant, as if set.
+*
+*     CODE_SYMSHOW_SCOPE1_K
+*
+*       Show the symbols in any scopes immediately subordinate to SYM.  Put
+*       another way, this shows scopes one level below SYM.
+*
+*     CODE_SYMSHOW_SCOPES_K
+*
+*       Show symbols in all subordinate scopes.  This causes the full tree of
+*       symbols below SYM to be shown.  When this flag is set,
+*       CODE_SYMSHOW_SCOPE1_K becomes irrelevant, as if set.
+*
+*     CODE_SYMSHOW_SUB_K
+*
+*       Show subordinate symbols that are private to SYM.  For example, this
+*       would show the named fields of an aggregate data type.
+}
+procedure code_sym_show (              {show symbol and any subordinate tree}
   in out  code: code_t;                {CODE library use state}
   in      sym: code_symbol_t;          {symbol to show description of}
-  in      lev: sys_int_machine_t);     {nesting level, 0 at top}
+  in      lev: sys_int_machine_t;      {nesting level, 0 at top}
+  in      show: code_symshow_t);       {list of optional info to show per symbol}
   val_param;
 
 var
   tk: string_var32_t;                  {scratch token}
-  dt_p: code_dtype_p_t;                {scratch pointer to data type}
-  stat: sys_err_t;
+  showr: code_symshow_t;               {SHOW with overrides resolved}
+  show2: code_symshow_t;               {scratch show flags}
+  stat: sys_err_t;                     {completion status}
 
 label
   done_sytype;
 
 begin
   tk.max := size_char(tk.str);         {init local var string}
+  showr := code_symshow_resolve (show); {resolve what to actually show}
 
   code_show_level_dot (lev);           {write leading indentation for this level}
 
@@ -256,71 +320,13 @@ code_symtype_const_k: begin
     write ('Constant');
     end;
 code_symtype_enum_k: begin
-    write ('Enum type');
+    write ('Enum val');
     end;
 code_symtype_dtype_k: begin
-    write ('dtype');
-    dt_p := sym.dtype_dtype_p;
-    if dt_p = nil then goto done_sytype;
-    write (' bits ', dt_p^.bits_min);
-    if code_typflag_pack_k in dt_p^.flags then begin
-      writeln (' pack');
-      end;
-    case dt_p^.typ of
-code_typid_undef_k: write (' UNDEF');
-code_typid_undefp_k: write (' UNDEF');
-code_typid_copy_k: begin
-        write (' COPY');
-        if
-            (dt_p^.copy_symbol_p <> nil) and then
-            (dt_p^.copy_symbol_p^.name_p <> nil)
-            then begin
-          write (' of ', dt_p^.copy_symbol_p^.name_p^.str:dt_p^.copy_symbol_p^.name_p^.len);
-          end;
-        end;
-code_typid_int_k: begin
-        write (' INT');
-        if dt_p^.int_sign then write (' signed');
-        if dt_p^.int_exactbits then write (' X');
-        end;
-code_typid_enum_k: begin
-        write (' ENUM');
-        end;
-code_typid_float_k: begin
-        write (' FLOAT');
-        end;
-code_typid_bool_k: begin
-        write (' BOOL');
-        end;
-code_typid_char_k: begin
-        write (' CHAR');
-        end;
-code_typid_agg_k: begin
-        write (' AGG');
-        end;
-code_typid_array_k: begin
-        write (' ARRAY');
-        end;
-code_typid_set_k: begin
-        write (' SET');
-        end;
-code_typid_range_k: begin
-        write (' RANGE');
-        end;
-code_typid_proc_k: begin
-        write (' PROC');
-        end;
-code_typid_pnt_k: begin
-        write (' PNT');
-        end;
-code_typid_vstr_k: begin
-        write (' VSTR');
-        end;
-code_typid_flxstr_k: begin
-        write (' FLXSTR');
-        end;
-      end;                             {end of which data type cases}
-    end;                               {end of data type symbol case}
+    write ('dtype ');
+    if sym.dtype_dtype_p = nil then goto done_sytype;
+    code_dtype_show (code, sym.dtype_dtype_p^, lev, show);
+    end;
 code_symtype_field_k: begin
     write ('Field');
     end;
@@ -348,20 +354,35 @@ code_symtype_label_k: begin
 otherwise
     write ('type ', ord(sym.symtype));
     end;
-done_sytype:                           {done writing info for this symbol type}
+done_sytype:                           {done with one-line info for this symbol}
   writeln;
 
-  code_show_pos (sym.pos, lev + 1);    {show source code location, if known}
-
-  if sym.comm_p <> nil then begin
-    code_comm_show (sym.comm_p, lev + 1);
+  if                                   {show EOL comment ?}
+      (code_symshow_commeol_k in showr) and
+      (sym.comm_p <> nil)
+      then begin
+    code_comm_show (sym.comm_p, lev + 2);
     end;
 
-  if sym.subscope_p <> nil then begin  {has subordinate scope ?}
-    code_scope_show (code, sym.subscope_p^, lev + 1);
+  if code_symshow_source_k in showr then begin {show source code location ?}
+    code_show_pos (sym.pos, lev + 2);
     end;
 
-  if sym.subtab_p <> nil then begin    {has subordinate symbol table ?}
-    code_symtab_show (code, sym.subtab_p^, lev + 1);
+  if                                   {show subordinate symbols ?}
+      (code_symshow_sub_k in showr) and
+      (sym.subtab_p <> nil)
+      then begin
+    code_symtab_show (code, sym.subtab_p^, lev + 1, show);
+    end;
+
+  if                                   {show subordinate scopes ?}
+      (code_symshow_scope1_k in showr) and
+      (sym.subscope_p <> nil)
+      then begin
+    show2 := show;                     {init what to show in subordinate levels}
+    if not (code_symshow_scopes_k in showr) then begin {only show 1 level down ?}
+      show2 := show2 - [code_symshow_scope1_k]; {don't show further sub-scopes}
+      end;
+    code_scope_show (code, sym.subscope_p^, lev + 1, show2);
     end;
   end;

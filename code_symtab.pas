@@ -140,7 +140,7 @@ otherwise
 {
 ********************************************************************************
 *
-*   Subroutine CODE_SYMTAB_SHOW (CODE, SYMTAB, LEV)
+*   Subroutine CODE_SYMTAB_SHOW (CODE, SYMTAB, LEV, SHOW)
 *
 *   Show the symbols in the symbol table SYMTAB.  LEV is the nesting level to
 *   show the symbols at.  The tree structure of subordinate symbols and scopes
@@ -149,7 +149,8 @@ otherwise
 procedure code_symtab_show (           {show symbol table tree}
   in out  code: code_t;                {CODE library use state}
   in      symtab: code_symtab_t;       {symbol table to show}
-  in      lev: sys_int_machine_t);     {nesting level, 0 at top}
+  in      lev: sys_int_machine_t;      {nesting level, 0 at top}
+  in      show: code_symshow_t);       {list of optional info to show per symbol}
   val_param;
 
 var
@@ -163,7 +164,7 @@ begin
 
   while found do begin                 {loop over the symbol table entries}
     string_hash_ent_atpos (pos, name_p, sym_p); {get data about this entry}
-    code_sym_show (code, sym_p^, lev); {show this symbol}
+    code_sym_show (code, sym_p^, lev, show); {show this symbol}
     string_hash_pos_next (pos, found); {advance to next entry in table}
     end;
   end;

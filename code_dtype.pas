@@ -15,6 +15,7 @@ define code_dtype_sym_resolve;
 define code_dtype_find;
 define code_dtype_int_gnam;
 define code_dtype_int_find;
+define code_dtype_show;
 %include 'code2.ins.pas';
 {
 ********************************************************************************
@@ -55,7 +56,7 @@ begin
     then begin                         {DTYPE is a copy}
       final_p := dtype.copy_dtype_p;   {return pointer to base data type}
       end
-    else begin                         {DTYPE is alread a base data type, not copy}
+    else begin                         {DTYPE is already a base data type, not copy}
       final_p := addr(dtype);          {return pointer to DTYPE directly}
       end
     ;
@@ -467,4 +468,167 @@ begin
     end;
 
   dtype_p := sym_p^.dtype_dtype_p;     {return pointer to the data type descriptor}
+  end;
+{
+********************************************************************************
+*
+*   Subroutine CODE_DTYPE_SHOW (CODE, DTYPE, LEV, SHOW)
+*
+*   Write a description of the data type DTYPE to standard output.  LEV is the
+*   nesting level the information is being shown at, and SHOW is a set of flags
+*   that enable showing of additional information.  See the header comments of
+*   CODE_SYM_SHOW for details of LEV and SHOW.
+*
+*   The basic data type description is written at the current output position.
+*   LEV only matters when additional lines are written.
+}
+procedure code_dtype_show (            {show data type description to user}
+  in out  code: code_t;                {CODE library use state}
+  var in  dtype: code_dtype_t;         {data type to show}
+  in      lev: sys_int_machine_t;      {nesting level data being shown at, 0 = top}
+  in      show: code_symshow_t);       {flags enabling optional information to show}
+  val_param;
+
+var
+  sp: boolean;                         {current position is after a space}
+  base_p: code_dtype_p_t;              {to base data type definition, not copy}
+{
+****************************************
+*
+*   Local subroutine SPACE
+*   This routine is local to CODE_DTYPE_SHOW.
+*
+*   Write a space unless there is already a space before the current writing
+*   position.
+}
+procedure space;
+  internal;
+
+begin
+  if not sp then begin
+    write (' ');
+    sp := true;
+    end;
+  end;
+{
+****************************************
+*
+*   Local subroutine SHOW_BITS
+*   This routine is local to CODE_DTYPE_SHOW.
+*
+*   Show the number of bits the data type uses or requires.
+}
+procedure show_bits;
+  internal;
+
+begin
+  space;
+  write (dtype.bits_min, ' bits');
+  if code_typflag_pack_k in dtype.flags then begin
+    writeln ('min');
+    end;
+  sp := false;
+  end;
+{
+****************************************
+*
+*   Local subroutine SHOW_TYPE (ID)
+*   This routine is local to CODE_DTYPE_SHOW.
+*
+*   Show the basic data type indicated by ID.
+}
+procedure show_type (                  {show basic data type}
+  in      id: code_typid_k_t);         {ID of the type to show}
+  val_param; internal;
+
+begin
+  space;
+  case id of                           {which type is it ?}
+code_typid_undef_k: write ('UNDEF');
+code_typid_undefp_k: write ('UNDEF PTR');
+code_typid_copy_k: write ('COPY');
+code_typid_int_k: write ('INT');
+code_typid_enum_k: write ('ENUM');
+code_typid_float_k: write ('FLOAT');
+code_typid_bool_k: write ('BOOL');
+code_typid_char_k: write ('CHAR');
+code_typid_agg_k: write ('AGG');
+code_typid_array_k: write ('ARRAY');
+code_typid_set_k: write ('SET');
+code_typid_range_k: write ('RANGE');
+code_typid_proc_k: write ('PROC');
+code_typid_pnt_k: write ('PNT');
+code_typid_vstr_k: write ('VSTR');
+code_typid_flxstr_k: write ('FLXSTR');
+otherwise
+    write ('typid ', ord(id));
+    end;
+  sp := false;
+  end;
+{
+****************************************
+*
+*   Start of main routine.
+}
+begin
+  sp := true;                          {init to no leading space needed}
+  code_dtype_resolve (dtype, base_p);  {resolve to final non-copy data type}
+  if base_p <> nil then begin
+    show_type (base_p^.typ);           {show name of base data type}
+    end;
+
+  case dtype.typ of                    {which basic type is the orginal dtype ?}
+code_typid_undef_k: begin
+      end;
+code_typid_undefp_k: begin
+      end;
+code_typid_copy_k: begin
+      space;
+      write ('COPY');
+      if
+          (base_p <> nil) and then
+          (base_p^.symbol_p <> nil) and then
+          (base_p^.symbol_p^.name_p <> nil)
+          then begin
+        write (' of ', base_p^.symbol_p^.name_p^.str:base_p^.symbol_p^.name_p^.len);
+        end;
+      end;
+code_typid_int_k: begin
+      show_bits;
+      if dtype.int_exactbits then write (' exact');
+      if dtype.int_sign then write (' signed');
+      end;
+code_typid_enum_k: begin
+      show_bits;
+      end;
+code_typid_float_k: begin
+      show_bits;
+      end;
+code_typid_bool_k: begin
+      show_bits;
+      end;
+code_typid_char_k: begin
+      show_bits;
+      end;
+code_typid_agg_k: begin
+      show_bits;
+      end;
+code_typid_array_k: begin
+      end;
+code_typid_set_k: begin
+      show_bits;
+      end;
+code_typid_range_k: begin
+      show_bits;
+      end;
+code_typid_proc_k: begin
+      end;
+code_typid_pnt_k: begin
+      show_bits;
+      end;
+code_typid_vstr_k: begin
+      end;
+code_typid_flxstr_k: begin
+      end;
+    end;                               {end of which data type cases}
   end;

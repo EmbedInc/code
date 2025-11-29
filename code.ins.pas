@@ -1261,6 +1261,19 @@ procedure code_symlist_new (           {create new empty symbols list}
   out     list_p: code_symlist_p_t);   {returned pointer to new list}
   val_param; extern;
 
+procedure code_symname_abs (           {make absolute symbol name path string}
+  in out  code: code_t;                {CODE library use state}
+  var in  sym: code_symbol_t;          {symbol to get full name path string of}
+  in out  path: univ string_var_arg_t); {returned full symbol hiearchy path name}
+  val_param; extern;
+
+procedure code_symname_path (          {get full symbol name path}
+  in out  code: code_t;                {CODE library use state}
+  var in  sym: code_symbol_t;          {symbol to get full name path of}
+  in out  mem: util_mem_context_t;     {parent mem for new symbols list}
+  out     path_p: code_symlist_p_t);   {symbols path, global to local order}
+  val_param; extern;
+
 procedure code_symtab_exist_scope (    {make sure symbol table in scope exists}
   in out  code: code_t;                {CODE library use state}
   in out  scope: code_scope_t;         {scope symbol table will be within}

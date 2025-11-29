@@ -492,6 +492,7 @@ procedure code_dtype_show (            {show data type description to user}
 var
   sp: boolean;                         {current position is after a space}
   base_p: code_dtype_p_t;              {to base data type definition, not copy}
+  str: string_var256_t;                {scratch string}
 {
 ****************************************
 *
@@ -571,6 +572,7 @@ otherwise
 *   Start of main routine.
 }
 begin
+  str.max := size_char(str.str);       {init local var string}
   sp := true;                          {init to no leading space needed}
   code_dtype_resolve (dtype, base_p);  {resolve to final non-copy data type}
   if base_p <> nil then begin
@@ -587,10 +589,10 @@ code_typid_copy_k: begin
       write ('COPY');
       if
           (base_p <> nil) and then
-          (base_p^.symbol_p <> nil) and then
-          (base_p^.symbol_p^.name_p <> nil)
+          (base_p^.symbol_p <> nil)
           then begin
-        write (' of ', base_p^.symbol_p^.name_p^.str:base_p^.symbol_p^.name_p^.len);
+        code_symname_abs (code, base_p^.symbol_p^, str); {make full name string}
+        write (' of ', str.str:str.len);
         end;
       end;
 code_typid_int_k: begin

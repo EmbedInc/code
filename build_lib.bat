@@ -22,6 +22,7 @@ call src_pas %srcdir% %libname%_sym
 call src_pas %srcdir% %libname%_sym_find
 call src_pas %srcdir% %libname%_symlist
 call src_pas %srcdir% %libname%_symname
+call src_pas %srcdir% %libname%_symshow
 call src_pas %srcdir% %libname%_symtab
 call src_pas %srcdir% %libname%_symtype
 

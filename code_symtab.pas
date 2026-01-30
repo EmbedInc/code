@@ -144,13 +144,13 @@ otherwise
 *
 *   Show the symbols in the symbol table SYMTAB.  LEV is the nesting level to
 *   show the symbols at.  The tree structure of subordinate symbols and scopes
-*   is shown.
+*   is shown as specified in SHOW.
 }
 procedure code_symtab_show (           {show symbol table tree}
   in out  code: code_t;                {CODE library use state}
   in      symtab: code_symtab_t;       {symbol table to show}
   in      lev: sys_int_machine_t;      {nesting level, 0 at top}
-  in      show: code_symshow_t);       {list of optional info to show per symbol}
+  in      show: code_symshow_t);       {control info for what to show}
   val_param;
 
 var
@@ -160,8 +160,12 @@ var
   sym_p: code_symbol_p_t;              {to current symbol}
 
 begin
-  string_hash_pos_first (symtab.hash, pos, found);
+  if                                   {already did all nesting level to show ?}
+      (show.maxlev <> 0) and           {not set to show all levels ?}
+      (show.lev >= show.maxlev)        {already showed max levels from top call ?}
+    then return;
 
+  string_hash_pos_first (symtab.hash, pos, found);
   while found do begin                 {loop over the symbol table entries}
     string_hash_ent_atpos (pos, name_p, sym_p); {get data about this entry}
     code_sym_show (code, sym_p^, lev, show); {show this symbol}

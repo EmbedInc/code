@@ -448,11 +448,15 @@ code_symtype_label_k: (                {symbol is a statement label}
   code_symshow_k_t = (                 {optional info to include when showing a symbol}
     code_symshow_commeol_k,            {end of line comment}
     code_symshow_comm_k,               {complete comment hierarchy}
-    code_symshow_scope1_k,             {show one level of subordinate scopes}
-    code_symshow_scopes_k,             {all subordinate scopes in tree structure}
     code_symshow_sub_k,                {private subordinate symbols, like fields in dtype}
     code_symshow_source_k);            {source code location}
-  code_symshow_t = set of code_symshow_k_t; {flags for all optional items in one word}
+  code_symshowf_t = set of code_symshow_k_t; {flags for all optional items in one word}
+
+  code_symshow_t = record              {control info for showing symbols tree}
+    opt: code_symshowf_t;              {individual option flags}
+    maxlev: sys_int_machine_t;         {max nesting from top call, 0 = all}
+    lev: sys_int_machine_t;            {current level below top call}
+    end;
 {
 *   Expressions.
 }
@@ -1003,7 +1007,7 @@ procedure code_dtype_show (            {show data type description to user}
   in out  code: code_t;                {CODE library use state}
   var in  dtype: code_dtype_t;         {data type to show}
   in      lev: sys_int_machine_t;      {nesting level data being shown at, 0 = top}
-  in      show: code_symshow_t);       {flags enabling optional information to show}
+  in      show: code_symshow_t);       {control info for what to show}
   val_param; extern;
 
 procedure code_dtype_sym_new (         {new data type symbol in curr scope}
@@ -1136,7 +1140,7 @@ procedure code_scope_show (            {show scope tree}
   in out  code: code_t;                {CODE library use state}
   in      scope: code_scope_t;         {the scope to show}
   in      lev: sys_int_machine_t;      {nesting level, 0 at top}
-  in      show: code_symshow_t);       {list of optional info to show per symbol}
+  in      show: code_symshow_t);       {control info for what to show}
   val_param; extern;
 
 procedure code_show_level_blank (      {indent to nesting level, write blanks only}
@@ -1213,12 +1217,12 @@ procedure code_sym_show (              {show symbol and any subordinate tree}
   in out  code: code_t;                {CODE library use state}
   in      sym: code_symbol_t;          {symbol to show description of}
   in      lev: sys_int_machine_t;      {nesting level, 0 at top}
-  in      show: code_symshow_t);       {list of optional info to show per symbol}
+  in      show: code_symshow_t);       {control info for what to show}
   val_param; extern;
 
 function code_symshow_resolve (        {resolve show flag overrides to final values}
-  in      show: code_symshow_t)        {show flags to apply rules to resolve}
-  :code_symshow_t;                     {fully resolved show flags}
+  in      showf: code_symshowf_t)      {show flags to apply rules to resolve}
+  :code_symshowf_t;                    {fully resolved show flags}
   val_param; extern;
 
 procedure code_symlist_add_scope (     {add all symbols in a scope to symbols list}
@@ -1274,6 +1278,10 @@ procedure code_symname_path (          {get full symbol name path}
   out     path_p: code_symlist_p_t);   {symbols path, global to local order}
   val_param; extern;
 
+procedure code_symshow_init (          {init control state for showing symbols tree}
+  out     symshow: code_symshow_t);    {will be set to default state}
+  val_param; extern;
+
 procedure code_symtab_exist_scope (    {make sure symbol table in scope exists}
   in out  code: code_t;                {CODE library use state}
   in out  scope: code_scope_t;         {scope symbol table will be within}
@@ -1305,7 +1313,7 @@ procedure code_symtab_show (           {show symbol table tree}
   in out  code: code_t;                {CODE library use state}
   in      symtab: code_symtab_t;       {symbol table to show}
   in      lev: sys_int_machine_t;      {nesting level, 0 at top}
-  in      show: code_symshow_t);       {list of optional info to show per symbol}
+  in      show: code_symshow_t);       {control info for what to show}
   val_param; extern;
 
 function code_symtab_symtype (         {get symbol table for particular symbol type}

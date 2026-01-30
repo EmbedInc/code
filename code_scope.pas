@@ -86,14 +86,15 @@ begin
 *
 *   Subroutine CODE_SCOPE_SHOW (CODE, SCOPE, LEV, SHOW)
 *
-*   Show the symbols in the scope SCOPE, and the tree of subordinate scopes.
-*   LEV is the nesting level to show the symbols directly in SCOPE at.
+*   Show the symbols in the scope SCOPE, and possible the tree of subordinate
+*   scopes as specified in SHOW.  LEV is the nesting level to show the symbols
+*   directly in SCOPE at.
 }
 procedure code_scope_show (            {show scope tree}
   in out  code: code_t;                {CODE library use state}
   in      scope: code_scope_t;         {the scope to show}
   in      lev: sys_int_machine_t;      {nesting level, 0 at top}
-  in      show: code_symshow_t);       {list of optional info to show per symbol}
+  in      show: code_symshow_t);       {control info for what to show}
   val_param;
 
 var
@@ -101,6 +102,11 @@ var
   ent_p: code_symlist_ent_p_t;         {to current symbols list entry}
 
 begin
+  if                                   {already did all nesting level to show ?}
+      (show.maxlev <> 0) and           {not set to show all levels ?}
+      (show.lev >= show.maxlev)        {already showed max levels from top call ?}
+    then return;
+
   code_symlist_new (code.mem_p^, list_p); {init symbols list}
   code_symlist_add_scope (list_p^, scope); {add all symbols in scope to the list}
   code_symlist_sort (list_p^);         {sort the list of symbols}

@@ -475,9 +475,8 @@ begin
 *   Subroutine CODE_DTYPE_SHOW (CODE, DTYPE, LEV, SHOW)
 *
 *   Write a description of the data type DTYPE to standard output.  LEV is the
-*   nesting level the information is being shown at, and SHOW is a set of flags
-*   that enable showing of additional information.  See the header comments of
-*   CODE_SYM_SHOW for details of LEV and SHOW.
+*   nesting level the information is being shown at, and SHOW is control state
+*   that selects what information to show.
 *
 *   The basic data type description is written at the current output position.
 *   LEV only matters when additional lines are written.
@@ -486,7 +485,7 @@ procedure code_dtype_show (            {show data type description to user}
   in out  code: code_t;                {CODE library use state}
   var in  dtype: code_dtype_t;         {data type to show}
   in      lev: sys_int_machine_t;      {nesting level data being shown at, 0 = top}
-  in      show: code_symshow_t);       {flags enabling optional information to show}
+  in      show: code_symshow_t);       {control info for what to show}
   val_param;
 
 var

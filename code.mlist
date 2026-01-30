@@ -11,5 +11,6 @@ code_sym.obj
 code_sym_find.obj
 code_symlist.obj
 code_symname.obj
+code_symshow.obj
 code_symtab.obj
 code_symtype.obj

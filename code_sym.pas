@@ -156,29 +156,25 @@ begin
 {
 ********************************************************************************
 *
-*   Function CODE_SYMSHOW_RESOLVE (SHOW)
+*   Function CODE_SYMSHOW_RESOLVE (SHOWF)
 *
 *   Returns the final fully resolved set of symbol-showing flags implied by
-*   SHOW.  Some flags in SHOW may inhibit or imply others.  This function
-*   returns the set of flags ultimately enabled by SHOW.
+*   SHOWF.  Some flags in SHOWF may inhibit or imply others.  This function
+*   returns the set of flags ultimately enabled by SHOWF.
 }
 function code_symshow_resolve (        {resolve show flag overrides to final values}
-  in      show: code_symshow_t)        {show flags to apply rules to resolve}
-  :code_symshow_t;                     {fully resolved show flags}
+  in      showf: code_symshowf_t)      {show flags to apply rules to resolve}
+  :code_symshowf_t;                    {fully resolved show flags}
   val_param;
 
 var
-  sh: code_symshow_t;                  {resolved flags}
+  sh: code_symshowf_t;                 {resolved flags}
 
 begin
-  sh := show;                          {init to originally enabled flags}
+  sh := showf;                         {init to originally enabled flags}
 
-  if code_symshow_comm_k in show then begin
+  if code_symshow_comm_k in showf then begin
     sh := sh + [code_symshow_commeol_k];
-    end;
-
-  if code_symshow_scopes_k in show then begin
-    sh := sh + [code_symshow_scope1_k];
     end;
 
   code_symshow_resolve := sh;          {pass back final result}
@@ -192,47 +188,20 @@ begin
 *
 *   LEV is the nesting level to show the symbol at, with 0 being the top level.
 *
-*   The basic one-line description of the symbol is always shown.  SHOW is a set
-*   of flags that enable showing additional information.  The possible flags in
-*   SHOW and what they enable are:
-*
-*     CODE_SYMSHOW_COMMEOL_K
-*
-*       Show the end of line comment, if any, the symbol is tagged with.
-*
-*     CODE_SYMSHOW_COMM_K
-*
-*       Show the complete comment hierarchy for the symbol, including the end of
-*       line comment.  When this flag is set, CODE_SYMSHOW_COMMEOL_K becomes
-*       irrelevant, as if set.
-*
-*     CODE_SYMSHOW_SCOPE1_K
-*
-*       Show the symbols in any scopes immediately subordinate to SYM.  Put
-*       another way, this shows scopes one level below SYM.
-*
-*     CODE_SYMSHOW_SCOPES_K
-*
-*       Show symbols in all subordinate scopes.  This causes the full tree of
-*       symbols below SYM to be shown.  When this flag is set,
-*       CODE_SYMSHOW_SCOPE1_K becomes irrelevant, as if set.
-*
-*     CODE_SYMSHOW_SUB_K
-*
-*       Show subordinate symbols that are private to SYM.  For example, this
-*       would show the named fields of an aggregate data type.
+*   The basic one-line description of the symbol is always shown.  SHOW controls
+*   what additional information is shown.
 }
 procedure code_sym_show (              {show symbol and any subordinate tree}
   in out  code: code_t;                {CODE library use state}
   in      sym: code_symbol_t;          {symbol to show description of}
   in      lev: sys_int_machine_t;      {nesting level, 0 at top}
-  in      show: code_symshow_t);       {list of optional info to show per symbol}
+  in      show: code_symshow_t);       {control info for what to show}
   val_param;
 
 var
   tk: string_var32_t;                  {scratch token}
-  showr: code_symshow_t;               {SHOW with overrides resolved}
-  show2: code_symshow_t;               {scratch show flags}
+  showr: code_symshowf_t;              {SHOW options with overrides resolved}
+  sh2: code_symshow_t;                 {show control info for subordinate calls}
   stat: sys_err_t;                     {completion status}
 
 label
@@ -240,7 +209,9 @@ label
 
 begin
   tk.max := size_char(tk.str);         {init local var string}
-  showr := code_symshow_resolve (show); {resolve what to actually show}
+  showr := code_symshow_resolve (show.opt); {resolve show options}
+  sh2 := show;                         {make show control for subordinate calls}
+  sh2.lev := sh2.lev + 1;              {subordinate will be one nesting level lower}
 
   code_show_level_dot (lev);           {write leading indentation for this level}
 
@@ -368,21 +339,17 @@ done_sytype:                           {done with one-line info for this symbol}
     code_show_pos (sym.pos, lev + 2);
     end;
 
-  if                                   {show subordinate symbols ?}
-      (code_symshow_sub_k in showr) and
-      (sym.subtab_p <> nil)
+  if                                   {show private subordinate symbols ?}
+      (sym.subtab_p <> nil) and
+      (code_symshow_sub_k in showr)
       then begin
     code_symtab_show (code, sym.subtab_p^, lev + 1, show);
     end;
 
   if                                   {show subordinate scopes ?}
-      (code_symshow_scope1_k in showr) and
-      (sym.subscope_p <> nil)
+      (sym.subscope_p <> nil) and      {there is a subscope to show ?}
+      ((sh2.maxlev = 0) or (sh2.lev < sh2.maxlev)) {one more level is enabled ?}
       then begin
-    show2 := show;                     {init what to show in subordinate levels}
-    if not (code_symshow_scopes_k in showr) then begin {only show 1 level down ?}
-      show2 := show2 - [code_symshow_scope1_k]; {don't show further sub-scopes}
-      end;
-    code_scope_show (code, sym.subscope_p^, lev + 1, show2);
+    code_scope_show (code, sym.subscope_p^, lev + 1, sh2);
     end;
   end;

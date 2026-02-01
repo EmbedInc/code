@@ -849,6 +849,15 @@ code_ele_write_eol_k: (                {write end of line to standard output}
     int_bits: sys_int_machine_t;       {min required bits in integer type}
     end;
 
+  code_cmd_cont_k_t = (                {options how to continue from cmd processing}
+    code_cmd_cont_go_k,                {continue processing normally}
+    code_cmd_cont_exit_k,              {quit the program}
+    code_cmd_cont_err_k);              {error occurred, STAT set}
+
+  code_cmd_cont_t = record             {how to continue after command processing}
+    opt: code_cmd_cont_k_t;            {selected option}
+    end;
+
   code_p_t = ^code_t;
   code_t = record                      {state for one use of this library}
     mem_p: util_mem_context_p_t;       {context for all dyn mem of this CODE lib use}
@@ -911,6 +920,12 @@ procedure code_alloc_symtab (          {alloc perm mem from symbol table context
   in out  symtab: code_symtab_t;       {context to allocate memory from}
   in      size: sys_int_adr_t;         {amount of memory to allocate, bytes}
   out     new_p: univ_ptr);            {returned pointer to the new memory}
+  val_param; extern;
+
+procedure code_cmd (                   {command processor to inspect data structures}
+  in out  code: code_t;                {CODE library use state}
+  out     cont: code_cmd_cont_t;       {user preferences about how to continue}
+  out     stat: sys_err_t);            {completion status}
   val_param; extern;
 
 procedure code_comm_find (             {returns pointer to comments applying at position}

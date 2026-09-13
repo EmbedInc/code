@@ -1053,8 +1053,8 @@ procedure code_dtype_sym_resolve (     {resolve dtype sym to final dtype descrip
 
 procedure code_dtype_sym_set (         {set dtype reference in symbol}
   in out  code: code_t;                {CODE library use state}
-  in out  sym: code_symbol_t;          {symbol to set dtype in, err if already set}
-  in      template: code_dtype_t);     {template data type}
+  in out  sym: code_symbol_t;          {symbol to set dtype in}
+  in out  template: code_dtype_t);     {template data type, copy may be created}
   val_param; extern;
 
 procedure code_err_atline (            {show error, current loc, and bomb}

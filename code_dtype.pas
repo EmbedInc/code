@@ -259,16 +259,16 @@ begin
 *   the symbol SYM is not a data type, or its pointer to the data type
 *   descriptor has already been filled in.  The data type is set to be the same
 *   as the data type described by TEMPLATE.
+*
+*   The symbol is directly linked to TEMPLATE if TEMPLATE does not already have
+*   a symbol.  Otherwise, a copy data type is created.  The copy is linked to
+*   the symbol, and indicated to be a copy of TEMPLATE.
 }
 procedure code_dtype_sym_set (         {set dtype reference in symbol}
   in out  code: code_t;                {CODE library use state}
-  in out  sym: code_symbol_t;          {symbol to set dtype in, err if already set}
-  in      template: code_dtype_t);     {template data type}
+  in out  sym: code_symbol_t;          {symbol to set dtype in}
+  in out  template: code_dtype_t);     {template data type, copy may be created}
   val_param;
-
-var
-  dtype_p: code_dtype_p_t;             {to base data type descriptor}
-  copy: boolean;                       {make copy to base dtype, not use directly}
 
 begin
   if sym.symtype <> code_symtype_dtype_k {symbol is not a data type ?}
@@ -276,49 +276,16 @@ begin
   if sym.dtype_dtype_p <> nil          {data type already set for this symbol ?}
     then return;
 
-  copy := false;                       {init to link to the base data type directly}
-{
-*   Check for data types that require special handling.  For these data types,
-*   we might not just make a copy of the template and link the symbol to it.
-}
-  case template.typ of                 {which base data type is it ?}
-    {
-    *   Integer.  Reuse or create the base data type in the root scope.  This
-    *   guarantees that all integers of the same type are ultimately seen as the
-    *   same.
-    }
-code_typid_int_k: begin                {integer}
-      code_dtype_int_find (code, template, dtype_p); {find or make base data type}
-      copy := true;                    {point sym to copy of base data type}
+  if template.symbol_p = nil
+    then begin                         {template has no symbol, use directly}
+      sym.dtype_dtype_p := addr(template);
+      template.symbol_p := addr(sym);  {set SYM as symbol for TEMPLATE}
+      end
+    else begin                         {template already has symbol, make copy}
+      code_dtype_new_sym (code, sym);  {create new blank dtype, link to symbol}
+      code_dtype_copy (template, sym.dtype_dtype_p^); {make copy of template dtype}
       end;
-    {
-    *   Data types that require no special handling.  We create a new data type
-    *   descriptor like the template, and link the symbol to it.
-    }
-otherwise
-    code_alloc_symtab (                {allocate memory for data type descriptor}
-      sym.symtab_p^, sizeof(dtype_p^), dtype_p);
-    dtype_p^ := template;              {make permanent copy of the template descriptor}
-    end;
-{
-*   DTYPE_P is pointing to a permanent data type descriptor matching TEMPLATE.
-*   Now set the symbol pointing to this descriptor.  When COPY is TRUE, a data
-*   type copy of DTYPE_P^ is created, and the symbol pointed to that instead of
-*   pointing directly to DTYPE_P^.
-}
-  if copy
-    then begin                         {point symbol to data type copy}
-      code_dtype_new_intable (         {create new dtype in same symtable as SYM}
-        code, sym.symtab_p^, sym.dtype_dtype_p);
-      code_dtype_copy (                {fill in new data as copy of DTYPE_P^}
-        dtype_p^,                      {the data type to copy}
-        sym.dtype_dtype_p^);           {dtype to fill in as a copy}
-      end
-    else begin                         {point to the base data type directly}
-      sym.dtype_dtype_p := dtype_p;
-      end
     ;
-  sym.dtype_dtype_p^.symbol_p := addr(sym); {link new dtype to its symbol}
   end;
 {
 ********************************************************************************
@@ -371,6 +338,8 @@ procedure code_dtype_find (            {find data type in curr scopes hierarchy}
   val_param;
 
 begin
+  writeln ('CODE_DTYPE_FIND not implemented yet.');
+  sys_bomb;
   end;
 {
 ********************************************************************************
